@@ -65,6 +65,8 @@ public class ApplicationServiceImpl implements ApplicationService {
     @Autowired
     private GitlabRepository gitlabRepository;
     @Autowired
+    private DevopsGitlabPersonalTokensRepository devopsGitlabPersonalTokensRepository;
+    @Autowired
     private ApplicationRepository applicationRepository;
     @Autowired
     private IamRepository iamRepository;
@@ -437,7 +439,10 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     private String getToken(DevOpsAppPayload gitlabProjectPayload, String applicationDir) {
-        List<String> tokens = gitlabRepository.listTokenByUserId(gitlabProjectPayload.getGitlabProjectId(),
+//        List<String> tokens = gitlabRepository.listTokenByUserId(gitlabProjectPayload.getGitlabProjectId(),
+//                applicationDir, gitlabProjectPayload.getUserId());
+
+        List<String> tokens = devopsGitlabPersonalTokensRepository.listTokenByUserId(gitlabProjectPayload.getGitlabProjectId(),
                 applicationDir, gitlabProjectPayload.getUserId());
         String accessToken;
         if (tokens.isEmpty()) {
