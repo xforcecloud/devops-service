@@ -11,6 +11,9 @@ C7N_COMMIT_MINUTES=${C7N_COMMIT_TIMESTAMP:10:2}
 C7N_COMMIT_SECONDS=${C7N_COMMIT_TIMESTAMP:12:2}
 export C7N_COMMIT_TIME=$C7N_COMMIT_YEAR.$C7N_COMMIT_MONTH.$C7N_COMMIT_DAY-$C7N_COMMIT_HOURS$C7N_COMMIT_MINUTES$C7N_COMMIT_SECONDS
 
+# 阿里云镜像库
+DOCKER_REGISTRY_PUBLIC=registry.cn-hangzhou.aliyuncs.com
+
 # 8位sha值
 export C7N_COMMIT_SHA=$(git log -1 --pretty=format:"%H" | awk '{print substr($1,1,8)}')
 
@@ -63,7 +66,7 @@ function cache_jar(){
 }
 function chart_build(){
     CHART_PATH=`find . -maxdepth 3 -name Chart.yaml`
-    sed -i 's/repository:.*$/repository\:\ '${DOCKER_REGISTRY}'\/'${GROUP_NAME}'\/'${PROJECT_NAME}'/g' ${CHART_PATH%/*}/values.yaml
+    sed -i 's/repository:.*$/repository\:\ '${DOCKER_REGISTRY_PUBLIC}'\/'${GROUP_NAME}'\/'${PROJECT_NAME}'/g' ${CHART_PATH%/*}/values.yaml
     helm package ${CHART_PATH%/*} --version ${CI_COMMIT_TAG} --app-version ${CI_COMMIT_TAG}
     TEMP=${CHART_PATH%/*}
     FILE_NAME=${TEMP##*/}
@@ -72,7 +75,7 @@ function chart_build(){
         -F "version=${CI_COMMIT_TAG}" \
         -F "file=@${FILE_NAME}-${CI_COMMIT_TAG}.tgz" \
         -F "commit=${CI_COMMIT_SHA}" \
-        -F "image=${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}" \
+        -F "image=${DOCKER_REGISTRY_PUBLIC}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}" \
         "${CHOERODON_URL}/devops/ci"
     if [ $? -ne 0 ]; then
         echo "upload chart error"
