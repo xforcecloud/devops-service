@@ -63,11 +63,8 @@ function cache_jar(){
     cp target/app.jar ${HOME}/.m2/${GROUP_NAME}/${CI_COMMIT_SHA}/app.jar
 }
 function chart_build(){
-    # 阿里云镜像库
-    DOCKER_REGISTRY_PUBLIC=registry.cn-hangzhou.aliyuncs.com
-    echo ${DOCKER_REGISTRY_PUBLIC}
     CHART_PATH=`find . -maxdepth 3 -name Chart.yaml`
-    sed -i 's/repository:.*$/repository\:\ '${DOCKER_REGISTRY_PUBLIC}'\/'${GROUP_NAME}'\/'${PROJECT_NAME}'/g' ${CHART_PATH%/*}/values.yaml
+    sed -i 's/repository:.*$/repository\:\ '${DOCKER_REGISTRY}'\/'${GROUP_NAME}'\/'${PROJECT_NAME}'/g' ${CHART_PATH%/*}/values.yaml
     helm package ${CHART_PATH%/*} --version ${CI_COMMIT_TAG} --app-version ${CI_COMMIT_TAG}
     TEMP=${CHART_PATH%/*}
     FILE_NAME=${TEMP##*/}
@@ -76,7 +73,7 @@ function chart_build(){
         -F "version=${CI_COMMIT_TAG}" \
         -F "file=@${FILE_NAME}-${CI_COMMIT_TAG}.tgz" \
         -F "commit=${CI_COMMIT_SHA}" \
-        -F "image=${DOCKER_REGISTRY_PUBLIC}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}" \
+        -F "image=${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}" \
         "${CHOERODON_URL}/devops/ci"
     if [ $? -ne 0 ]; then
         echo "upload chart error"
