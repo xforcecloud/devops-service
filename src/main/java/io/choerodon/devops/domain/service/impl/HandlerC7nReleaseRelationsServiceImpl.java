@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -29,7 +31,7 @@ import io.choerodon.devops.infra.common.util.enums.ObjectType;
 
 @Service
 public class HandlerC7nReleaseRelationsServiceImpl implements HandlerObjectFileRelationsService<C7nHelmRelease> {
-
+    private static final Logger LOGGER = LoggerFactory.getLogger(HandlerC7nReleaseRelationsServiceImpl.class);
     private static final String C7NHELM_RELEASE = "C7NHelmRelease";
     private static final String GIT_SUFFIX = "/.git";
     @Autowired
@@ -237,11 +239,14 @@ public class HandlerC7nReleaseRelationsServiceImpl implements HandlerObjectFileR
         applicationDeployDTO.setAppVerisonId(applicationVersionE.getId());
         applicationDeployDTO.setInstanceName(c7nHelmRelease.getMetadata().getName());
         if (type.equals("update")) {
+            LOGGER.info("c7nHelmRelease.getMetadata().getName(): " + c7nHelmRelease.getMetadata().getName());
             ApplicationInstanceE applicationInstanceE = applicationInstanceRepository
                     .selectByCode(c7nHelmRelease.getMetadata().getName(), envId);
             DevopsEnvCommandE devopsEnvCommandE = devopsEnvCommandRepository.query(applicationInstanceE.getCommandId());
             String deployValue = applicationInstanceRepository.queryValueByInstanceId(applicationInstanceE.getId());
+            LOGGER.info("deployValue: " + deployValue + " c7nHelmRelease value: " + applicationDeployDTO.getValues());
             ReplaceResult replaceResult = applicationInstanceService.getReplaceResult(deployValue, applicationDeployDTO.getValues());
+            LOGGER.info("replaceResult.getNewLines(): " + replaceResult.getNewLines()==null?"null":"not null" + " applicationVersionE.getId" + applicationVersionE.getId());
             if (deployValue != null && replaceResult.getNewLines().isEmpty() && applicationVersionE.getId().equals(devopsEnvCommandE.getObjectVersionId())) {
                 applicationDeployDTO.setIsNotChange(true);
             }
