@@ -24,9 +24,10 @@ public class GitUserNameUtil {
      * @return userId
      */
     public static Integer getUserId() {
-        CustomUserDetails details = DetailsHelper.getUserDetails();
-        Long userId = details.getUserId();
-        return TypeUtil.objToInteger(userId);
+//        CustomUserDetails details = DetailsHelper.getUserDetails();
+//        Long userId = details.getUserId();
+        return 0;
+//        return TypeUtil.objToInteger(userId);
     }
 
 
