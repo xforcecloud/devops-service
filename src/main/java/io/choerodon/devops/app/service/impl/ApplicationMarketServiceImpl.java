@@ -620,6 +620,16 @@ public class ApplicationMarketServiceImpl implements ApplicationMarketService {
                     FILE_SEPARATOR,
                     projectCode);
             FileUtil.copyFile(tgzVersions.get(0).getAbsolutePath(), classPath);
+
+            String repoUrl = String.format("%s%s%s%s%s%s%s", helmUrl,
+                    FILE_SEPARATOR,
+                    organizationCode,
+                    FILE_SEPARATOR,
+                    projectCode,
+                    FILE_SEPARATOR,
+                    "api/charts");
+            HttpClientUtil.postTgz(repoUrl, tgzVersions.get(0).getAbsolutePath());
+
             FileUtil.deleteDirectory(new File(appCode));
         }
     }

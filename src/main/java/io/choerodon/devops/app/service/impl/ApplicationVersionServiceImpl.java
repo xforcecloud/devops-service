@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import io.choerodon.devops.infra.common.util.HttpClientUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ import io.choerodon.mybatis.pagehelper.domain.PageRequest;
 public class ApplicationVersionServiceImpl implements ApplicationVersionService {
 
     private static final String DESTPATH = "devops";
+    private static final String FILE_SEPARATOR = System.getProperty("file.separator");
 
     @Autowired
     private ApplicationVersionRepository applicationVersionRepository;
@@ -77,6 +79,17 @@ public class ApplicationVersionServiceImpl implements ApplicationVersionService 
                 System.getProperty("file.separator"),
                 projectE.getCode());
         String path = FileUtil.multipartFileToFile(classPath, files);
+
+        String repoUrl = String.format("%s%s%s%s%s%s%s", helmUrl,
+                FILE_SEPARATOR,
+                organization.getCode(),
+                FILE_SEPARATOR,
+                projectE.getCode(),
+                FILE_SEPARATOR,
+                "api/charts");
+        HttpClientUtil.postTgz(repoUrl, path);
+        FileUtil.deleteFile(path);
+
         if (newApplicationVersionE != null) {
             return;
         }
