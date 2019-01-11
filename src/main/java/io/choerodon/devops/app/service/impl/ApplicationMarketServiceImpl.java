@@ -621,7 +621,7 @@ public class ApplicationMarketServiceImpl implements ApplicationMarketService {
                     projectCode);
             FileUtil.copyFile(tgzVersions.get(0).getAbsolutePath(), classPath);
 
-            String repoUrl = String.format("%s%s%s%s%s%s%s%s%s%s%s%s", helmUrl,
+            String repoUrl = String.format("%s%s%s%s%s%s%s", helmUrl,
                     FILE_SEPARATOR,
                     organizationCode,
                     FILE_SEPARATOR,

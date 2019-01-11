@@ -80,7 +80,7 @@ public class ApplicationVersionServiceImpl implements ApplicationVersionService 
                 projectE.getCode());
         String path = FileUtil.multipartFileToFile(classPath, files);
 
-        String repoUrl = String.format("%s%s%s%s%s%s%s%s%s%s%s%s", helmUrl,
+        String repoUrl = String.format("%s%s%s%s%s%s%s", helmUrl,
                 FILE_SEPARATOR,
                 organization.getCode(),
                 FILE_SEPARATOR,
