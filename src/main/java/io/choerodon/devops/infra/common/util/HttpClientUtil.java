@@ -73,8 +73,8 @@ public class HttpClientUtil {
             CloseableHttpResponse response = httpclient.execute(httpPost);
             HttpEntity resEntity = response.getEntity();
             if (resEntity != null) {
-                System.out.println(String.format("postUrl: s%, fileUrl: s%", postUrl, fileUrl));
-                System.out.println(String.format("Chart upload Http Status: s%, Response content length: s%", response.getStatusLine().toString(), resEntity.getContentLength()));
+                System.out.println(String.format("postUrl: %s, fileUrl: %s", postUrl, fileUrl));
+                System.out.println(String.format("Chart upload Http Status: %s, Response content length: %s", response.getStatusLine().toString(), resEntity.getContentLength()));
             }
             EntityUtils.consume(resEntity);
         } catch (IOException e) {
