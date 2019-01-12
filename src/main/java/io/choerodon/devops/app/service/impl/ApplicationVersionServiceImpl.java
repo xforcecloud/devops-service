@@ -88,7 +88,6 @@ public class ApplicationVersionServiceImpl implements ApplicationVersionService 
                 FILE_SEPARATOR,
                 "api/charts");
         HttpClientUtil.postTgz(repoUrl, path);
-        FileUtil.deleteFile(path);
 
         if (newApplicationVersionE != null) {
             return;
@@ -118,6 +117,7 @@ public class ApplicationVersionServiceImpl implements ApplicationVersionService 
         applicationVersionE.initApplicationVersionReadmeV(FileUtil.getReadme(destFilePath));
         applicationVersionRepository.create(applicationVersionE);
         FileUtil.deleteDirectory(new File(destFilePath));
+        FileUtil.deleteFile(path);
     }
 
     @Override
