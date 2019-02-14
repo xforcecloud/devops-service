@@ -58,6 +58,9 @@ public interface GitlabServiceClient {
                                             @RequestParam(value = "projectsLimit", required = false) Integer projectsLimit,
                                             @RequestBody GitlabUserEvent gitlabUserEvent);
 
+    @PutMapping("/v1/users/{userId}/password")
+    ResponseEntity<UserDO> updateGitLabUserPassword(@PathVariable("userId") Integer userId,
+                                            @RequestParam(value = "password") String password);
 
     @PutMapping("/v1/projects/{projectId}")
     ResponseEntity<GitlabProjectDO> updateProject(@PathVariable("projectId") Integer projectId,

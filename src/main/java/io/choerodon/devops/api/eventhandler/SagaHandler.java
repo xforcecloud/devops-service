@@ -207,6 +207,7 @@ public class SagaHandler {
             gitlabUserReqDTO.setExternUid(t.getId());
             gitlabUserReqDTO.setSkipConfirmation(true);
             gitlabUserReqDTO.setUsername(t.getUsername());
+            gitlabUserReqDTO.setPassword(t.getPassword());
             gitlabUserReqDTO.setEmail(t.getEmail());
             gitlabUserReqDTO.setName(t.getName());
             gitlabUserReqDTO.setCanCreateGroup(true);
@@ -283,5 +284,22 @@ public class SagaHandler {
         return payload;
     }
 
+    /**
+     * 修改密码事件
+     */
+    @SagaTask(code = "devopsUpdatePassword", description = "修改密码事件",
+            sagaCode = "iam-update-password", maxRetryCount = 0,
+            seq = 1)
+    public String handleUpdatePasswordEvent(String payload) {
+        GitlabUserDTO gitlabUserDTO = gson.fromJson(payload, GitlabUserDTO.class);
+        loggerInfo(gitlabUserDTO);
+
+        GitlabUserRequestDTO gitlabUserReqDTO = new GitlabUserRequestDTO();
+        gitlabUserReqDTO.setExternUid(gitlabUserDTO.getId());
+        gitlabUserReqDTO.setPassword(gitlabUserDTO.getPassword());
+
+        gitlabUserService.updateGitlabUserPassword(gitlabUserReqDTO);
+        return payload;
+    }
 
 }

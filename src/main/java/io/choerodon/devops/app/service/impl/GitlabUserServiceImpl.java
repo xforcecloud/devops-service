@@ -49,7 +49,8 @@ public class GitlabUserServiceImpl implements GitlabUserService {
         gitlabUserReqDTO.setUsername(validateUserName);
 
         GitlabUserE createOrUpdateGitlabUserE = gitlabUserRepository.createGitLabUser(
-                gitlabConfigurationProperties.getPassword(),
+//                gitlabConfigurationProperties.getPassword(),
+                gitlabUserReqDTO.getPassword(),
                 gitlabConfigurationProperties.getProjectLimit(),
                 ConvertHelper.convert(gitlabUserReqDTO, GitlabUserEvent.class));
 
@@ -69,6 +70,15 @@ public class GitlabUserServiceImpl implements GitlabUserService {
             gitlabUserRepository.updateGitLabUser(TypeUtil.objToInteger(userAttrE.getGitlabUserId()),
                     gitlabConfigurationProperties.getProjectLimit(),
                     ConvertHelper.convert(gitlabUserReqDTO, GitlabUserEvent.class));
+        }
+    }
+
+    @Override
+    public void updateGitlabUserPassword(GitlabUserRequestDTO gitlabUserReqDTO) {
+        UserAttrE userAttrE = userAttrRepository.queryById(TypeUtil.objToLong(gitlabUserReqDTO.getExternUid()));
+        if (userAttrE != null) {
+            gitlabUserRepository.updateGitLabUserPassword(TypeUtil.objToInteger(userAttrE.getGitlabUserId()),
+                    gitlabUserReqDTO.getPassword());
         }
     }
 

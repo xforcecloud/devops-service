@@ -11,6 +11,8 @@ public interface GitlabUserService {
 
     void updateGitlabUser(GitlabUserRequestDTO gitlabUserReqDTO);
 
+    void updateGitlabUserPassword(GitlabUserRequestDTO gitlabUserReqDTO);
+
     void isEnabledGitlabUser(Integer userId);
 
     void disEnabledGitlabUser(Integer userId);

@@ -6,6 +6,7 @@ package io.choerodon.devops.api.dto;
 public class GitlabUserDTO {
 
     private String username;
+    private String password;
     private String email;
     private String id;
     private String name;
@@ -16,6 +17,14 @@ public class GitlabUserDTO {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 
     public String getEmail() {

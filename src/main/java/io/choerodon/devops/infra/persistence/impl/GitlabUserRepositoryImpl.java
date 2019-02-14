@@ -49,6 +49,17 @@ public class GitlabUserRepositoryImpl implements GitlabUserRepository {
     }
 
     @Override
+    public GitlabUserE updateGitLabUserPassword(Integer userId, String password) {
+        ResponseEntity<UserDO> responseEntity;
+        try {
+            responseEntity = gitlabServiceClient.updateGitLabUserPassword(userId, password);
+        } catch (FeignException e) {
+            throw new CommonException(e);
+        }
+        return ConvertHelper.convert(responseEntity.getBody(), GitlabUserE.class);
+    }
+
+    @Override
     public void isEnabledGitlabUser(Integer userId) {
 
         try {
