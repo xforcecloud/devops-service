@@ -49,7 +49,8 @@ public class GitlabUserServiceImpl implements GitlabUserService {
         gitlabUserReqDTO.setUsername(validateUserName);
 
         GitlabUserE createOrUpdateGitlabUserE = gitlabUserRepository.createGitLabUser(
-                gitlabConfigurationProperties.getPassword(),
+//                gitlabConfigurationProperties.getPassword(),
+                gitlabUserReqDTO.getPassword(),
                 gitlabConfigurationProperties.getProjectLimit(),
                 ConvertHelper.convert(gitlabUserReqDTO, GitlabUserEvent.class));
 

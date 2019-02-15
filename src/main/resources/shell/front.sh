@@ -63,19 +63,14 @@ function chart_build(){
     helm package ${CHART_PATH%/*} --version ${CI_COMMIT_TAG} --app-version ${CI_COMMIT_TAG}
     TEMP=${CHART_PATH%/*}
     FILE_NAME=${TEMP##*/}
-    HTTP_CODE=`curl -X POST \
+    curl -X POST \
         -F "token=${Token}" \
         -F "version=${CI_COMMIT_TAG}" \
         -F "file=@${FILE_NAME}-${CI_COMMIT_TAG}.tgz" \
         -F "commit=${CI_COMMIT_SHA}" \
         -F "image=${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}" \
-        -w %{http_code} \
-        -o "curl-result.json" \
-        "${CHOERODON_URL}/devops/ci"`
-    FAILED_EXIST=`cat curl-result.json|jq 'has("failed")'`
-    echo "------------------------------"
-    if [ $? -ne 0 ] || [ $HTTP_CODE -ne 200 ] || [ -s curl-result.json -a "$FAILED_EXIST" = "true" ] ; then
-        cat curl-result.json
+        "${CHOERODON_URL}/devops/ci"
+    if [ $? -ne 0 ]; then
         echo "upload chart error"
         exit 1
     fi

@@ -207,6 +207,7 @@ public class SagaHandler {
             gitlabUserReqDTO.setExternUid(t.getId());
             gitlabUserReqDTO.setSkipConfirmation(true);
             gitlabUserReqDTO.setUsername(t.getUsername());
+            gitlabUserReqDTO.setPassword(t.getPassword());
             gitlabUserReqDTO.setEmail(t.getEmail());
             gitlabUserReqDTO.setName(t.getName());
             gitlabUserReqDTO.setCanCreateGroup(true);
