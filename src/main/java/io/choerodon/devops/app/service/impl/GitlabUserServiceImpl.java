@@ -82,7 +82,7 @@ public class GitlabUserServiceImpl implements GitlabUserService {
     public void updateGitlabUserPassword(GitlabUserRequestDTO gitlabUserReqDTO) {
         UserAttrE userAttrE = userAttrRepository.queryById(TypeUtil.objToLong(gitlabUserReqDTO.getExternUid()));
         if (userAttrE != null) {
-            List<String> tokens = devopsGitlabPersonalTokensRepository.listTokenByUserId(TypeUtil.objToInteger(userAttrE.getIamUserId()));
+            List<String> tokens = devopsGitlabPersonalTokensRepository.listTokenByUserId(TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
             String accessToken;
             if (tokens.isEmpty()) {
                 accessToken = devopsGitlabPersonalTokensRepository.createToken(TypeUtil.objToInteger(userAttrE.getGitlabUserId()), TypeUtil.objToInteger(userAttrE.getIamUserId()));
