@@ -13,7 +13,7 @@ public interface GitlabUserRepository {
 
     GitlabUserE updateGitLabUser(Integer userId, Integer projectsLimit, GitlabUserEvent gitlabUserEvent);
 
-    GitlabUserE updateGitLabUserPassword(Integer userId, String password);
+    GitlabUserE updateGitLabUserPassword(Integer userId, String password, String token);
 
     void isEnabledGitlabUser(Integer userId);
 

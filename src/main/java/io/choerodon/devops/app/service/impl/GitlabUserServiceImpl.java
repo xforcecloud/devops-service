@@ -1,5 +1,6 @@
 package io.choerodon.devops.app.service.impl;
 
+import io.choerodon.devops.domain.application.repository.DevopsGitlabPersonalTokensRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +15,8 @@ import io.choerodon.devops.domain.application.repository.UserAttrRepository;
 import io.choerodon.devops.infra.common.util.TypeUtil;
 import io.choerodon.devops.infra.config.GitlabConfigurationProperties;
 import io.choerodon.core.exception.CommonException;
+
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -27,6 +30,8 @@ public class GitlabUserServiceImpl implements GitlabUserService {
     private GitlabUserRepository gitlabUserRepository;
     @Autowired
     private UserAttrRepository userAttrRepository;
+    @Autowired
+    private DevopsGitlabPersonalTokensRepository devopsGitlabPersonalTokensRepository;
 
     private Pattern pattern = Pattern.compile("[\\w+|\\-|.|_]+");
 
@@ -77,8 +82,15 @@ public class GitlabUserServiceImpl implements GitlabUserService {
     public void updateGitlabUserPassword(GitlabUserRequestDTO gitlabUserReqDTO) {
         UserAttrE userAttrE = userAttrRepository.queryById(TypeUtil.objToLong(gitlabUserReqDTO.getExternUid()));
         if (userAttrE != null) {
+            List<String> tokens = devopsGitlabPersonalTokensRepository.listTokenByUserId(TypeUtil.objToInteger(userAttrE.getIamUserId()));
+            String accessToken;
+            if (tokens.isEmpty()) {
+                accessToken = devopsGitlabPersonalTokensRepository.createToken(TypeUtil.objToInteger(userAttrE.getGitlabUserId()), TypeUtil.objToInteger(userAttrE.getIamUserId()));
+            } else {
+                accessToken = tokens.get(tokens.size() - 1);
+            }
             gitlabUserRepository.updateGitLabUserPassword(TypeUtil.objToInteger(userAttrE.getGitlabUserId()),
-                    gitlabUserReqDTO.getPassword());
+                    gitlabUserReqDTO.getPassword(), accessToken);
         }
     }
 

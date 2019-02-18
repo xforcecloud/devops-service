@@ -23,10 +23,28 @@ public class DevopsGitlabPersonalTokensRepositoryImpl implements DevopsGitlabPer
     }
 
     @Override
+    public List<String> listTokenByUserId(Integer userId) {
+        List<DevopsGitlabPersonalTokensDO> impersonationTokens;
+        impersonationTokens = mapper.queryByGitlabUserId(userId);
+        return impersonationTokens.stream().map(DevopsGitlabPersonalTokensDO::getToken).collect(Collectors.toList());
+    }
+
+    @Override
     public List<String> listTokenByUserId(Integer gitlabProjectId, String name, Integer userId) {
         List<DevopsGitlabPersonalTokensDO> impersonationTokens;
             impersonationTokens = mapper.queryByGitlabUserId(userId);
         return impersonationTokens.stream().map(DevopsGitlabPersonalTokensDO::getToken).collect(Collectors.toList());
+    }
+
+    @Override
+    public String createToken(Integer userId, Integer iamUserId) {
+        String token = gitlabRepository.createToken(userId);
+        DevopsGitlabPersonalTokensDO devopsGitlabPersonalTokensDO = new DevopsGitlabPersonalTokensDO();
+        devopsGitlabPersonalTokensDO.setGitlabUserId(userId);
+        devopsGitlabPersonalTokensDO.setToken(token);
+        devopsGitlabPersonalTokensDO.setUserId(iamUserId);
+        mapper.insert(devopsGitlabPersonalTokensDO);
+        return token;
     }
 
     @Override

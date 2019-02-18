@@ -21,12 +21,13 @@ public interface GitlabRepository {
 
     String createToken(Integer gitlabProjectId, String name, Integer userId);
 
+    String createToken(Integer userId);
+
     GitlabGroupE queryGroupByName(String groupName, Integer userId);
 
     GitlabGroupE createGroup(GitlabGroupE gitlabGroupE, Integer userId);
 
     void createFile(Integer projectId, String path, String content, String commitMessage, Integer userId);
-
 
     void updateFile(Integer projectId, String path, String content, String commitMessage, Integer userId);
 

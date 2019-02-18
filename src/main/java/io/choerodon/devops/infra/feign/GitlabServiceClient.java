@@ -60,7 +60,7 @@ public interface GitlabServiceClient {
 
     @PutMapping("/v1/users/{userId}/password")
     ResponseEntity<UserDO> updateGitLabUserPassword(@PathVariable("userId") Integer userId,
-                                            @RequestParam(value = "password") String password);
+                                            @RequestParam(value = "password") String password, @RequestParam(value = "token") String token);
 
     @PutMapping("/v1/projects/{projectId}")
     ResponseEntity<GitlabProjectDO> updateProject(@PathVariable("projectId") Integer projectId,

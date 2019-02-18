@@ -73,6 +73,17 @@ public class GitlabRepositoryImpl implements GitlabRepository {
     }
 
     @Override
+    public String createToken(Integer userId) {
+        ResponseEntity<ImpersonationTokenDO> impersonationToken;
+        try {
+            impersonationToken = gitlabServiceClient.createToken(userId);
+        } catch (FeignException e) {
+            throw new CommonException(e);
+        }
+        return impersonationToken.getBody().getToken();
+    }
+
+    @Override
     public GitlabGroupE queryGroupByName(String groupName, Integer userId) {
         ResponseEntity<GroupDO> groupDO;
         try {

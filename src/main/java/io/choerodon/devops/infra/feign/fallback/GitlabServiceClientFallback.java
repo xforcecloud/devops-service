@@ -59,7 +59,7 @@ public class GitlabServiceClientFallback implements GitlabServiceClient {
     }
 
     @Override
-    public ResponseEntity<UserDO> updateGitLabUserPassword(Integer userId, String password) {
+    public ResponseEntity<UserDO> updateGitLabUserPassword(Integer userId, String password, String token) {
         return new ResponseEntity("error.GitlabUser.update.password", HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
