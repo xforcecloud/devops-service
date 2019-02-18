@@ -18,7 +18,7 @@ public class UserController {
     @Autowired
     GitlabUserService gitlabUserService;
 
-    @PutMapping("/v1/users/{userId}/password")
+    @PutMapping("/password")
     void updateUserPassword(@PathVariable("userId") Integer userId,
                             @RequestParam(value = "password") String password) {
         GitlabUserRequestDTO gitlabUserReqDTO = new GitlabUserRequestDTO();
