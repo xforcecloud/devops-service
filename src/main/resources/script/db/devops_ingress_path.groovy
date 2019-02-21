@@ -25,7 +25,7 @@ databaseChangeLog(logicalFilePath: 'dba/devops_ingress_path.groovy') {
         }
     }
 
-    changeSet(author: 'luye', id: '2018-11-29-add-column') {
+    changeSet(author: 'luye', id: '2018-11-29-add-column', failOnError: false) {
         addColumn(tableName: 'devops_ingress_path') {
             column(name: 'rewrite_path', type: 'VARCHAR(64)', remarks: 'rewrite路径', afterColumn: 'path')
         }
