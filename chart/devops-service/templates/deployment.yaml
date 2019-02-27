@@ -56,9 +56,10 @@ spec:
           volumeMounts:
           - mountPath: /Charts
             name: data
-{{- if not (empty .Values.persistence.subPath) }}
-            subPath: {{ .Values.persistence.subPath }}
-{{- end }}
+            subPath: charts
+          - mountPath: /gitops
+            name: data
+            subPath: gitops
       volumes:
       - name: data
         {{- if .Values.persistence.enabled }}
