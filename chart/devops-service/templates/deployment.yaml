@@ -59,6 +59,9 @@ spec:
 {{- if not (empty .Values.persistence.subPath) }}
             subPath: {{ .Values.persistence.subPath }}
 {{- end }}
+          - mountPath: /gitops
+            name: data
+            subPath: gitops
       volumes:
       - name: data
         {{- if .Values.persistence.enabled }}
