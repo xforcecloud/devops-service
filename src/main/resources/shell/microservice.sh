@@ -73,21 +73,19 @@ function chart_build(){
     helm package ${CHART_PATH%/*} --version ${CI_COMMIT_TAG} --app-version ${CI_COMMIT_TAG}
     TEMP=${CHART_PATH%/*}
     FILE_NAME=${TEMP##*/}
-    # 通过Choerodon API上传chart包
-    result_http_code=`curl -X POST \
+    HTTP_CODE=`curl -X POST \
         -F "token=${Token}" \
         -F "version=${CI_COMMIT_TAG}" \
         -F "file=@${FILE_NAME}-${CI_COMMIT_TAG}.tgz" \
         -F "commit=${CI_COMMIT_SHA}" \
         -F "image=${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}" \
-        "${CHOERODON_URL}/devops/ci" \
-        -o "${CI_COMMIT_SHA}-ci.response" \
-        -w %{http_code}`
-    # 判断本次上传是否出错
-    response_content=`cat "${CI_COMMIT_SHA}-ci.response"`
-    rm "${CI_COMMIT_SHA}-ci.response"
-    if [ "$result_http_code" != "200" ]; then
-        echo $response_content
+        -w %{http_code} \
+        -o "curl-result.json" \
+        "${CHOERODON_URL}/devops/ci"`
+    FAILED_EXIST=`cat curl-result.json|jq 'has("failed")'`
+    echo "------------------------------"
+    if [ $? -ne 0 ] || [ $HTTP_CODE -ne 200 ] || [ -s curl-result.json -a "$FAILED_EXIST" = "true" ] ; then
+        cat curl-result.json
         echo "upload chart error"
         exit 1
     fi
