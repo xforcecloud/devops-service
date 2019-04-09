@@ -35,7 +35,9 @@ public class AliLogController {
     @Permission(level = ResourceLevel.ORGANIZATION, roles = {InitRoleCode.ORGANIZATION_ADMINISTRATOR})
     @ApiOperation(value = "获取阿里云日志URL")
     @GetMapping("/logsearch")
-    public ResponseEntity<String> createSignInUrl() {
+    public ResponseEntity<String> createSignInUrl(
+            @ApiParam(value = "组织Id", required = true)
+            @PathVariable(value = "organization_id") Long organizationId) {
         return Optional.ofNullable(aliLogService.createSignInUrl())
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.alilog.createurl"));
