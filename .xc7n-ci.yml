@@ -28,4 +28,4 @@ release:
 
 before_script:
   - *auto_devops
-  - echo "{\"auths\":{\"$DOCKER_REGISTRY\":{\"username\":\"$DOCKER_USER\",\"password\":\"$DOCKER_PWD\"}}}" > /root/.docker/config.json
+  - mkdir /root/.docker && echo "{\"auths\":{\"$DOCKER_REGISTRY\":{\"username\":\"$DOCKER_USER\",\"password\":\"$DOCKER_PWD\"}}}" > /root/.docker/config.json
