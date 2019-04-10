@@ -27,12 +27,12 @@ import java.util.Optional;
  */
 
 @RestController
-@RequestMapping(value = "/v1/organizations/{organization_id}/alilog")
+@RequestMapping(value = "/v1/projects/{project_id}/alilog")
 public class AliLogController {
     @Autowired
     AliLogService aliLogService;
 
-    @Permission(level = ResourceLevel.ORGANIZATION, roles = {InitRoleCode.ORGANIZATION_ADMINISTRATOR})
+    @Permission(level = ResourceLevel.PROJECT, roles = {InitRoleCode.PROJECT_ADMINISTRATOR})
     @ApiOperation(value = "获取阿里云日志URL")
     @GetMapping("/logsearch")
     public ResponseEntity<String> createSignInUrl(
