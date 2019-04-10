@@ -37,7 +37,7 @@ public class AliLogController {
     @GetMapping("/logsearch")
     public ResponseEntity<String> createSignInUrl(
             @ApiParam(value = "组织Id", required = true)
-            @PathVariable(value = "organization_id") Long organizationId) {
+            @PathVariable(value = "project_id") Long projectId) {
         return Optional.ofNullable(aliLogService.createSignInUrl())
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.alilog.createurl"));
