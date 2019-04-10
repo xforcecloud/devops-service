@@ -22,22 +22,27 @@ import io.choerodon.devops.domain.application.entity.iam.UserE;
 import io.choerodon.devops.domain.application.handler.DevopsCiInvalidException;
 import io.choerodon.devops.domain.application.repository.*;
 import io.choerodon.devops.domain.application.valueobject.Organization;
-import io.choerodon.devops.infra.common.util.CutomerContextUtil;
-import io.choerodon.devops.infra.common.util.FileUtil;
-import io.choerodon.devops.infra.common.util.GitUserNameUtil;
-import io.choerodon.devops.infra.common.util.TypeUtil;
+import io.choerodon.devops.infra.common.util.*;
+import io.choerodon.devops.infra.config.ConfigurationProperties;
+import io.choerodon.devops.infra.config.RetrofitHandler;
+import io.choerodon.devops.infra.feign.ChartClient;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import retrofit2.Call;
+import retrofit2.Retrofit;
 
 /**
  * Created by Zenger on 2018/4/3.
  */
 @Service
 public class ApplicationVersionServiceImpl implements ApplicationVersionService {
-
+    private static final String FILE_SEPARATOR = System.getProperty("file.separator");
     private static final String CREATE = "create";
     private static final String UPDATE = "update";
     private static final String STATUS_RUN = "running";
@@ -119,6 +124,14 @@ public class ApplicationVersionServiceImpl implements ApplicationVersionService 
         }
         String destFilePath = DESTPATH + version;
         String path = FileUtil.multipartFileToFile(storeFilePath, files);
+        String repoUrl = String.format("%s%s%s%s%s%s%s", helmUrl,
+                FILE_SEPARATOR,
+                organization.getCode(),
+                FILE_SEPARATOR,
+                projectE.getCode(),
+                FILE_SEPARATOR,
+                "api/charts");
+        HttpClientUtil.postTgz(repoUrl, path);
         FileUtil.unTarGZ(path, destFilePath);
         String values;
         try (FileInputStream fis = new FileInputStream(new File(Objects.requireNonNull(FileUtil.queryFileFromFiles(
@@ -144,7 +157,25 @@ public class ApplicationVersionServiceImpl implements ApplicationVersionService 
         applicationVersionE = applicationVersionRepository.create(applicationVersionE);
         FileUtil.deleteDirectory(new File(destFilePath));
         FileUtil.deleteDirectory(new File(storeFilePath));
+        FileUtil.deleteFile(path);
         triggerAutoDelpoy(applicationVersionE);
+    }
+
+    private void uploadChart(String organizationCode, String projectCode, List<File> tgzVersions) {
+        ConfigurationProperties configurationProperties = new ConfigurationProperties();
+        configurationProperties.setType("chart");
+        configurationProperties.setBaseUrl(helmUrl);
+        Retrofit retrofit = RetrofitHandler.initRetrofit(configurationProperties);
+        File file = new File(tgzVersions.get(0).getAbsolutePath());
+        RequestBody requestFile = RequestBody.create(MediaType.parse("multipart/form-data"), file);
+        MultipartBody.Part body = MultipartBody.Part.createFormData("chart", file.getName(), requestFile);
+        ChartClient chartClient = retrofit.create(ChartClient.class);
+        Call<Object> uploadTaz = chartClient.uploadTaz(organizationCode, projectCode, body);
+        try {
+            uploadTaz.execute();
+        } catch (IOException e) {
+            throw new CommonException(e);
+        }
     }
 
     /**
