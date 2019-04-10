@@ -9,12 +9,15 @@ import com.aliyuncs.profile.IClientProfile;
 import com.aliyuncs.sts.model.v20150401.AssumeRoleRequest;
 import com.aliyuncs.sts.model.v20150401.AssumeRoleResponse;
 import io.choerodon.devops.app.service.AliLogService;
+import io.choerodon.devops.domain.application.entity.ProjectE;
+import io.choerodon.devops.domain.application.repository.IamRepository;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -32,6 +35,9 @@ import static java.lang.System.exit;
  */
 @Service
 public class AliLogServiceImpl implements AliLogService {
+    @Autowired
+    private IamRepository iamRepository;
+
     String akId = "LTAIucoh28kS3Gqy";
     String ak = "2TiL4mP6XQXvuCrFx0NQE2pMmg2ibC";
     // 如何使用sts访问日志服务请参考：https://www.atatech.org/articles/101998
@@ -100,7 +106,11 @@ public class AliLogServiceImpl implements AliLogService {
             "}";
 
     @Override
-    public String createSignInUrl(){
+    public String createSignInUrl(Long projectId){
+        String orgCode = "usage-metering-service";
+        String proCode = "test";
+        ProjectE projectE = iamRepository.queryIamProject(projectId);
+
         String signInUrl = "";
         try {
             DefaultProfile.addEndpoint("", "cn-hangzhou", "Sts", stsHost);
@@ -158,7 +168,7 @@ public class AliLogServiceImpl implements AliLogService {
                             + "&Destination=%s"
                             + "&SigninToken=%s",
                     URLEncoder.encode("https://www.aliyun.com", "utf-8"),
-                    URLEncoder.encode("https://sls4service.console.aliyun.com/next/project/usage-metering-service/logsearch/test?isShare=true&hideTopbar=true&hideSidebar=true", "utf-8"),
+                    URLEncoder.encode(String.format("https://sls4service.console.aliyun.com/next/project/%s/logsearch/%s?isShare=true&hideTopbar=true&hideSidebar=true", orgCode, proCode), "utf-8"),
                     URLEncoder.encode(signInToken, "utf-8"));
             System.out.println(signInUrl);
         } catch (ClientException e) {

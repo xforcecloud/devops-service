@@ -38,7 +38,7 @@ public class AliLogController {
     public ResponseEntity<String> createSignInUrl(
             @ApiParam(value = "组织Id", required = true)
             @PathVariable(value = "project_id") Long projectId) {
-        return Optional.ofNullable(aliLogService.createSignInUrl())
+        return Optional.ofNullable(aliLogService.createSignInUrl(projectId))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.alilog.createurl"));
     }

@@ -8,5 +8,5 @@ package io.choerodon.devops.app.service;
  * 修改历史:
  */
 public interface AliLogService {
-    String createSignInUrl();
+    String createSignInUrl(Long projectId);
 }
