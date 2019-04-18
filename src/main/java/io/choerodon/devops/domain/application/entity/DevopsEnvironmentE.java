@@ -63,11 +63,10 @@ public class DevopsEnvironmentE {
      * @param code 环境code
      * @param name 环境name
      */
-    public DevopsEnvironmentE(Long id, String code, String name, Long clusterId) {
+    public DevopsEnvironmentE(Long id, String code, String name) {
         this.id = id;
         this.code = code;
         this.name = name;
-        this.clusterId = clusterId;
     }
 
 
