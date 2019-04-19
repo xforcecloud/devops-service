@@ -122,7 +122,8 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
     @Saga(code = "devops-create-env", description = "创建环境", inputSchema = "{}")
     public void create(Long projectId, DevopsEnviromentDTO devopsEnviromentDTO) {
         String envCode = devopsEnviromentDTO.getCode();
-        if (Pattern.matches("^([a-zA-Z])\\d{2}\\-.*",envCode)){
+        String regex = "^([a-zA-Z])\\d{2}\\-.*";
+        if (Pattern.matches(regex,envCode)){
             int i = envCode.indexOf("-");
             String clsName = envCode.substring(0,i);
             String newCode = envCode.substring(i+1,envCode.length());
@@ -130,7 +131,6 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
         } else {
             devopsEnviromentDTO.setCode(projectId + "-" + envCode);
         }
-
         DevopsEnvironmentE devopsEnvironmentE = ConvertHelper.convert(devopsEnviromentDTO, DevopsEnvironmentE.class);
         devopsEnvironmentE.initProjectE(projectId);
         checkCode(projectId, devopsEnviromentDTO.getClusterId(), devopsEnviromentDTO.getCode());
