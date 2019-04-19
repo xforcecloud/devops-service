@@ -122,10 +122,15 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
     @Saga(code = "devops-create-env", description = "创建环境", inputSchema = "{}")
     public void create(Long projectId, DevopsEnviromentDTO devopsEnviromentDTO) {
         String envCode = devopsEnviromentDTO.getCode();
-        int i = envCode.indexOf("-");
-        String clsName = envCode.substring(0,i);
-        String newCode = envCode.substring(i+1,envCode.length());
-        devopsEnviromentDTO.setCode(clsName.toLowerCase() + projectId + "-" + newCode);
+        if (Pattern.matches("^([a-zA-Z])\\d{2}\\-.*",envCode)){
+            int i = envCode.indexOf("-");
+            String clsName = envCode.substring(0,i);
+            String newCode = envCode.substring(i+1,envCode.length());
+            devopsEnviromentDTO.setCode(clsName.toLowerCase() + projectId + "-" + newCode);
+        } else {
+            devopsEnviromentDTO.setCode(projectId + "-" + envCode);
+        }
+
         DevopsEnvironmentE devopsEnvironmentE = ConvertHelper.convert(devopsEnviromentDTO, DevopsEnvironmentE.class);
         devopsEnvironmentE.initProjectE(projectId);
         checkCode(projectId, devopsEnviromentDTO.getClusterId(), devopsEnviromentDTO.getCode());
