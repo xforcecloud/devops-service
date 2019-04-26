@@ -34,6 +34,5 @@ docker-build:
         rm -rf /cache/${CI_PROJECT_NAME}-${CI_PROJECT_ID}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHA}
     }
 
-
 before_script:
   - *auto_devops
