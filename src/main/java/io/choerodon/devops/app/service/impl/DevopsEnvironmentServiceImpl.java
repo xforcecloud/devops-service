@@ -9,6 +9,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
+import io.choerodon.mybatis.pagehelper.PageHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -60,7 +61,7 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
     private static final String ENV = "ENV";
     private static final String PROJECT_OWNER = "role/project/default/project-owner";
     private static final String PROJECT_MEMBER = "role/project/default/project-member";
-    private static String PROJECT_ALL = "role/project";
+    private static final String PROJECT_ALL = "role/project";
     private Pattern pattern = Pattern.compile("^[-\\+]?[\\d]*$");
     private ObjectMapper objectMapper = new ObjectMapper();
 
@@ -709,13 +710,29 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
         Page<RoleDTO> memberRoleDTOPage = iamRepository.queryRoleIdByCode(PROJECT_ALL);
         if (memberRoleDTOPage.getTotalElements() == 0) {
             throw new CommonException("error.get.projectMember.roleId");
-        } else {
-            memberId = memberRoleDTOPage.getContent().get(0).getId();
         }
+
+
+        List<UserDTO> membersAll = memberRoleDTOPage.stream().map(RoleDTO::getId).flatMap(id ->
+                iamRepository
+                .pagingQueryUsersByRoleIdOnProjectLevel(new PageRequest(), roleAssignmentSearchDTO,
+                        id, projectId, false).stream())
+                .distinct()
+                .collect(Collectors.toList());
+
+        List<UserDTO> membersFilters = membersAll.stream().skip(pageRequest.getPage() * pageRequest.getSize())
+                .limit(pageRequest.getSize()).collect(Collectors.toList());
+
         // 所有项目成员，可能还带有项目所有者的角色，需要过滤
-        Page<UserDTO> allMemberWithOtherUsersPage = iamRepository
-                .pagingQueryUsersByRoleIdOnProjectLevel(pageRequest, roleAssignmentSearchDTO,
-                        memberId, projectId, true);
+
+        Page<UserDTO> allMemberWithOtherUsersPage = new Page<>();
+
+        allMemberWithOtherUsersPage.setContent(membersFilters);
+        allMemberWithOtherUsersPage.setNumberOfElements(membersFilters.size());
+        allMemberWithOtherUsersPage.setSize(pageRequest.getSize());
+        allMemberWithOtherUsersPage.setTotalElements(membersAll.size());
+        allMemberWithOtherUsersPage.setTotalPages(membersAll.size() / pageRequest.getSize() + 1);
+
         // 如果项目成员查出来为空，则直接返回空列表
         if (allMemberWithOtherUsersPage.getContent().isEmpty()) {
             return allMemberWithOtherUsersPage;
