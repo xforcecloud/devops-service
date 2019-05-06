@@ -60,6 +60,7 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
     private static final String ENV = "ENV";
     private static final String PROJECT_OWNER = "role/project/default/project-owner";
     private static final String PROJECT_MEMBER = "role/project/default/project-member";
+    private static String PROJECT_ALL = "role/project";
     private Pattern pattern = Pattern.compile("^[-\\+]?[\\d]*$");
     private ObjectMapper objectMapper = new ObjectMapper();
 
@@ -705,7 +706,7 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
         }
         // 获取项目成员id
         Long memberId;
-        Page<RoleDTO> memberRoleDTOPage = iamRepository.queryRoleIdByCode(PROJECT_MEMBER);
+        Page<RoleDTO> memberRoleDTOPage = iamRepository.queryRoleIdByCode(PROJECT_ALL);
         if (memberRoleDTOPage.getTotalElements() == 0) {
             throw new CommonException("error.get.projectMember.roleId");
         } else {
