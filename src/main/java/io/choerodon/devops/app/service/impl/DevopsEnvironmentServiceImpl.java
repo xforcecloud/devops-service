@@ -706,7 +706,7 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
             ownerId = ownerRoleDTOPage.getContent().get(0).getId();
         }
         // 获取项目成员id
-        Long memberId;
+        //members has all project owner filter it
         Page<RoleDTO> memberRoleDTOPage = iamRepository.queryRoleIdByCode(PROJECT_ALL);
         if (memberRoleDTOPage.getTotalElements() == 0) {
             throw new CommonException("error.get.projectMember.roleId");
@@ -720,38 +720,31 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        List<UserDTO> membersFilters = membersAll.stream().skip(pageRequest.getPage() * pageRequest.getSize())
-                .limit(pageRequest.getSize()).collect(Collectors.toList());
-
         // 所有项目成员，可能还带有项目所有者的角色，需要过滤
 
         Page<UserDTO> allMemberWithOtherUsersPage = new Page<>();
 
-        allMemberWithOtherUsersPage.setContent(membersFilters);
-        allMemberWithOtherUsersPage.setNumberOfElements(membersFilters.size());
-        allMemberWithOtherUsersPage.setSize(pageRequest.getSize());
-        allMemberWithOtherUsersPage.setTotalElements(membersAll.size());
-        allMemberWithOtherUsersPage.setTotalPages(membersAll.size() / pageRequest.getSize() + 1);
+
 
         // 如果项目成员查出来为空，则直接返回空列表
-        if (allMemberWithOtherUsersPage.getContent().isEmpty()) {
+        // fast return
+        if (membersAll.isEmpty()) {
+            allMemberWithOtherUsersPage.setContent(membersAll);
             return allMemberWithOtherUsersPage;
         }
         // 所有项目所有者
         Page<UserDTO> allOwnerUsersPage = iamRepository
                 .pagingQueryUsersByRoleIdOnProjectLevel(new PageRequest(), roleAssignmentSearchDTO,
                         ownerId, projectId, false);
-        // 如果项目所有者查出来为空，则返回之前的项目成员列表
-        if (allOwnerUsersPage.getContent().isEmpty()) {
-            return allMemberWithOtherUsersPage;
-        } else {
-            // 否则过滤项目成员中含有项目所有者的人
-            List<UserDTO> returnUserDTOList = allMemberWithOtherUsersPage.stream()
-                    .filter(e -> !allOwnerUsersPage.getContent().contains(e)).collect(Collectors.toList());
-            // 设置过滤后的分页显示参数
-            allMemberWithOtherUsersPage.setContent(returnUserDTOList);
-            return allMemberWithOtherUsersPage;
-        }
+
+
+        List<UserDTO> returnUserDTOList = membersAll.stream()
+                .filter(e -> !allOwnerUsersPage.getContent().contains(e))
+                .skip(pageRequest.getPage() * pageRequest.getSize())
+                .limit(pageRequest.getSize()).collect(Collectors.toList());
+
+        allMemberWithOtherUsersPage.setContent(returnUserDTOList);
+        return allMemberWithOtherUsersPage;
     }
 
     private void updateGitlabProjectMember(Long gitlabProjectId, Long userId, Integer permission) {
