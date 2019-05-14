@@ -206,24 +206,33 @@ public class DevopsEnvResourceServiceImpl implements DevopsEnvResourceService {
      * @param v1Pod                pod对象
      */
     private void addPodToResource(DevopsEnvResourceDTO devopsEnvResourceDTO, V1Pod v1Pod) {
-        PodDTO podDTO = new PodDTO();
-        podDTO.setName(v1Pod.getMetadata().getName());
-        podDTO.setDesire(TypeUtil.objToLong(v1Pod.getSpec().getContainers().size()));
-        long ready = 0L;
-        Long restart = 0L;
-        if (v1Pod.getStatus() !=null && v1Pod.getStatus().getContainerStatuses() != null) {
-            for (V1ContainerStatus v1ContainerStatus : v1Pod.getStatus().getContainerStatuses()) {
-                if (v1ContainerStatus.isReady() && v1ContainerStatus.getState().getRunning().getStartedAt() != null) {
-                    ready = ready + 1;
+        try {
+            PodDTO podDTO = new PodDTO();
+            podDTO.setName(v1Pod.getMetadata().getName());
+            podDTO.setDesire(TypeUtil.objToLong(v1Pod.getSpec().getContainers().size()));
+            long ready = 0L;
+            Long restart = 0L;
+            if (v1Pod.getStatus() != null && v1Pod.getStatus().getContainerStatuses() != null) {
+                for (V1ContainerStatus v1ContainerStatus : v1Pod.getStatus().getContainerStatuses()) {
+                    if (v1ContainerStatus.isReady() && v1ContainerStatus.getState().getRunning().getStartedAt() != null) {
+                        ready = ready + 1;
+                    }
+                    restart = restart + v1ContainerStatus.getRestartCount();
                 }
-                restart = restart + v1ContainerStatus.getRestartCount();
             }
+
+            //safe guard
+            if (v1Pod.getStatus() != null) {
+                podDTO.setReady(ready);
+                podDTO.setStatus(K8sUtil.changePodStatus(v1Pod));
+                podDTO.setRestarts(restart);
+                podDTO.setAge(v1Pod.getMetadata().getCreationTimestamp().toString());
+                devopsEnvResourceDTO.getPodDTOS().add(podDTO);
+            }
+        } catch (Exception ex){
+            //this this ugly but
+            ex.printStackTrace();
         }
-        podDTO.setReady(ready);
-        podDTO.setStatus(K8sUtil.changePodStatus(v1Pod));
-        podDTO.setRestarts(restart);
-        podDTO.setAge(v1Pod.getMetadata().getCreationTimestamp().toString());
-        devopsEnvResourceDTO.getPodDTOS().add(podDTO);
     }
 
     /**
@@ -233,14 +242,19 @@ public class DevopsEnvResourceServiceImpl implements DevopsEnvResourceService {
      * @param v1beta2Deployment    deployment对象
      */
     public void addDeploymentToResource(DevopsEnvResourceDTO devopsEnvResourceDTO, V1beta2Deployment v1beta2Deployment) {
-        DeploymentDTO deploymentDTO = new DeploymentDTO();
-        deploymentDTO.setName(v1beta2Deployment.getMetadata().getName());
-        deploymentDTO.setDesired(TypeUtil.objToLong(v1beta2Deployment.getSpec().getReplicas()));
-        deploymentDTO.setCurrent(TypeUtil.objToLong(v1beta2Deployment.getStatus().getReplicas()));
-        deploymentDTO.setUpToDate(TypeUtil.objToLong(v1beta2Deployment.getStatus().getUpdatedReplicas()));
-        deploymentDTO.setAvailable(TypeUtil.objToLong(v1beta2Deployment.getStatus().getAvailableReplicas()));
-        deploymentDTO.setAge(v1beta2Deployment.getMetadata().getCreationTimestamp().toString());
-        devopsEnvResourceDTO.getDeploymentDTOS().add(deploymentDTO);
+        try {
+            DeploymentDTO deploymentDTO = new DeploymentDTO();
+            deploymentDTO.setName(v1beta2Deployment.getMetadata().getName());
+            deploymentDTO.setDesired(TypeUtil.objToLong(v1beta2Deployment.getSpec().getReplicas()));
+            deploymentDTO.setCurrent(TypeUtil.objToLong(v1beta2Deployment.getStatus().getReplicas()));
+            deploymentDTO.setUpToDate(TypeUtil.objToLong(v1beta2Deployment.getStatus().getUpdatedReplicas()));
+            deploymentDTO.setAvailable(TypeUtil.objToLong(v1beta2Deployment.getStatus().getAvailableReplicas()));
+            deploymentDTO.setAge(v1beta2Deployment.getMetadata().getCreationTimestamp().toString());
+            devopsEnvResourceDTO.getDeploymentDTOS().add(deploymentDTO);
+        } catch (Exception ex){
+            //this this ugly but
+            ex.printStackTrace();
+        }
     }
 
     /**
@@ -250,27 +264,32 @@ public class DevopsEnvResourceServiceImpl implements DevopsEnvResourceService {
      * @param v1Service            service对象
      */
     public void addServiceToResource(DevopsEnvResourceDTO devopsEnvResourceDTO, V1Service v1Service) {
-        ServiceDTO serviceDTO = new ServiceDTO();
-        serviceDTO.setName(v1Service.getMetadata().getName());
-        serviceDTO.setType(v1Service.getSpec().getType());
-        if (v1Service.getSpec().getClusterIP().length() == 0) {
-            serviceDTO.setClusterIp(NONE_LABEL);
-        } else {
-            serviceDTO.setClusterIp(v1Service.getSpec().getClusterIP());
+        try {
+            ServiceDTO serviceDTO = new ServiceDTO();
+            serviceDTO.setName(v1Service.getMetadata().getName());
+            serviceDTO.setType(v1Service.getSpec().getType());
+            if (v1Service.getSpec().getClusterIP().length() == 0) {
+                serviceDTO.setClusterIp(NONE_LABEL);
+            } else {
+                serviceDTO.setClusterIp(v1Service.getSpec().getClusterIP());
+            }
+            serviceDTO.setExternalIp(K8sUtil.getServiceExternalIp(v1Service));
+            String port = K8sUtil.makePortString(v1Service.getSpec().getPorts());
+            if (port.length() == 0) {
+                port = NONE_LABEL;
+            }
+            String targetPort = K8sUtil.makeTargetPortString(v1Service.getSpec().getPorts());
+            if (targetPort.length() == 0) {
+                targetPort = NONE_LABEL;
+            }
+            serviceDTO.setPort(port);
+            serviceDTO.setTargetPort(targetPort);
+            serviceDTO.setAge(v1Service.getMetadata().getCreationTimestamp().toString());
+            devopsEnvResourceDTO.getServiceDTOS().add(serviceDTO);
+        } catch (Exception ex){
+            //this this ugly but
+            ex.printStackTrace();
         }
-        serviceDTO.setExternalIp(K8sUtil.getServiceExternalIp(v1Service));
-        String port = K8sUtil.makePortString(v1Service.getSpec().getPorts());
-        if (port.length() == 0) {
-            port = NONE_LABEL;
-        }
-        String targetPort = K8sUtil.makeTargetPortString(v1Service.getSpec().getPorts());
-        if (targetPort.length() == 0) {
-            targetPort = NONE_LABEL;
-        }
-        serviceDTO.setPort(port);
-        serviceDTO.setTargetPort(targetPort);
-        serviceDTO.setAge(v1Service.getMetadata().getCreationTimestamp().toString());
-        devopsEnvResourceDTO.getServiceDTOS().add(serviceDTO);
     }
 
     /**
@@ -280,13 +299,18 @@ public class DevopsEnvResourceServiceImpl implements DevopsEnvResourceService {
      * @param v1beta1Ingress       ingress对象
      */
     public void addIngressToResource(DevopsEnvResourceDTO devopsEnvResourceDTO, V1beta1Ingress v1beta1Ingress) {
-        IngressDTO ingressDTO = new IngressDTO();
-        ingressDTO.setName(v1beta1Ingress.getMetadata().getName());
-        ingressDTO.setHosts(K8sUtil.formatHosts(v1beta1Ingress.getSpec().getRules()));
-        ingressDTO.setPorts(K8sUtil.formatPorts(v1beta1Ingress.getSpec().getTls()));
-        ingressDTO.setAddress(K8sUtil.loadBalancerStatusStringer(v1beta1Ingress.getStatus().getLoadBalancer()));
-        ingressDTO.setAge(v1beta1Ingress.getMetadata().getCreationTimestamp().toString());
-        devopsEnvResourceDTO.getIngressDTOS().add(ingressDTO);
+        try {
+            IngressDTO ingressDTO = new IngressDTO();
+            ingressDTO.setName(v1beta1Ingress.getMetadata().getName());
+            ingressDTO.setHosts(K8sUtil.formatHosts(v1beta1Ingress.getSpec().getRules()));
+            ingressDTO.setPorts(K8sUtil.formatPorts(v1beta1Ingress.getSpec().getTls()));
+            ingressDTO.setAddress(K8sUtil.loadBalancerStatusStringer(v1beta1Ingress.getStatus().getLoadBalancer()));
+            ingressDTO.setAge(v1beta1Ingress.getMetadata().getCreationTimestamp().toString());
+            devopsEnvResourceDTO.getIngressDTOS().add(ingressDTO);
+        } catch (Exception ex){
+            //this this ugly but
+            ex.printStackTrace();
+        }
     }
 
     /**
@@ -296,16 +320,21 @@ public class DevopsEnvResourceServiceImpl implements DevopsEnvResourceService {
      * @param v1beta2ReplicaSet    replicaSet对象
      */
     public void addReplicaSetToResource(DevopsEnvResourceDTO devopsEnvResourceDTO, V1beta2ReplicaSet v1beta2ReplicaSet) {
-        if (v1beta2ReplicaSet.getSpec().getReplicas() == 0) {
-            return;
+        try {
+            if (v1beta2ReplicaSet.getSpec().getReplicas() == 0) {
+                return;
+            }
+            ReplicaSetDTO replicaSetDTO = new ReplicaSetDTO();
+            replicaSetDTO.setName(v1beta2ReplicaSet.getMetadata().getName());
+            replicaSetDTO.setCurrent(TypeUtil.objToLong(v1beta2ReplicaSet.getStatus().getReplicas()));
+            replicaSetDTO.setDesired(TypeUtil.objToLong(v1beta2ReplicaSet.getSpec().getReplicas()));
+            replicaSetDTO.setReady(TypeUtil.objToLong(v1beta2ReplicaSet.getStatus().getReadyReplicas()));
+            replicaSetDTO.setAge(v1beta2ReplicaSet.getMetadata().getCreationTimestamp().toString());
+            devopsEnvResourceDTO.getReplicaSetDTOS().add(replicaSetDTO);
+        } catch (Exception ex){
+            //this this ugly but
+            ex.printStackTrace();
         }
-        ReplicaSetDTO replicaSetDTO = new ReplicaSetDTO();
-        replicaSetDTO.setName(v1beta2ReplicaSet.getMetadata().getName());
-        replicaSetDTO.setCurrent(TypeUtil.objToLong(v1beta2ReplicaSet.getStatus().getReplicas()));
-        replicaSetDTO.setDesired(TypeUtil.objToLong(v1beta2ReplicaSet.getSpec().getReplicas()));
-        replicaSetDTO.setReady(TypeUtil.objToLong(v1beta2ReplicaSet.getStatus().getReadyReplicas()));
-        replicaSetDTO.setAge(v1beta2ReplicaSet.getMetadata().getCreationTimestamp().toString());
-        devopsEnvResourceDTO.getReplicaSetDTOS().add(replicaSetDTO);
     }
 
     /**
