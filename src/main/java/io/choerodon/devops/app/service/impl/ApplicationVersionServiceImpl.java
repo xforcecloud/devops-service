@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import io.choerodon.devops.infra.common.util.FileUtilEx;
 import io.choerodon.devops.infra.common.util.HttpClientUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -95,7 +96,7 @@ public class ApplicationVersionServiceImpl implements ApplicationVersionService 
         String destFilePath = DESTPATH + version;
         FileUtil.unTarGZ(path, destFilePath);
         String values;
-        try (FileInputStream fis = new FileInputStream(new File(Objects.requireNonNull(FileUtil.queryFileFromFiles(
+        try (FileInputStream fis = new FileInputStream(new File(Objects.requireNonNull(FileUtilEx.queryFileFromFiles(
                 new File(destFilePath), "values.yaml")).getAbsolutePath()))) {
             values = FileUtil.replaceReturnString(fis, null);
         } catch (IOException e) {
