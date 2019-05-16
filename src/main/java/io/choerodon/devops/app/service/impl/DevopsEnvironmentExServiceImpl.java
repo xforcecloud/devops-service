@@ -48,7 +48,7 @@ public class DevopsEnvironmentExServiceImpl implements DevopsEnvironmentExServic
                 .map(DevopsEnvUserPermissionE::getEnvId).collect(Collectors.toList());
         ProjectE projectE = iamRepository.queryIamProject(projectId);
         // 查询当前用户是否为项目所有者
-        Boolean isProjectOwner = devopsEnvUserPermissionRepository
+        Boolean isProjectOwner = iamRepository
                 .isProjectOwner(TypeUtil.objToLong(GitUserNameUtil.getUserId()), projectE);
 
         List<Long> connectedClusterList = envUtil.getConnectedEnvList(envListener);
