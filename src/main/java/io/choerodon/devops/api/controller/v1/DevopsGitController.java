@@ -312,7 +312,6 @@ public class DevopsGitController {
     /**
      * 删除分支
      *
-     * @param projectId     项目 ID
      * @param applicationId 应用ID
      * @param branchName    分支名
      */
@@ -326,8 +325,8 @@ public class DevopsGitController {
             @ApiParam(value = "应用id", required = true)
             @PathVariable(value = "application_id") Long applicationId,
             @ApiParam(value = "分支名", required = true)
-            @RequestParam String branchName) {
-        devopsGitService.deleteBranch(projectId, applicationId, branchName);
+            @RequestParam(value = "branch_name") String branchName) {
+        devopsGitService.deleteBranch(applicationId, branchName);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
@@ -356,5 +355,26 @@ public class DevopsGitController {
         return Optional.ofNullable(devopsGitService.getMergeRequestList(projectId, applicationId, state, pageRequest))
                 .map(result -> new ResponseEntity<>(result, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.mergerequest.get"));
+    }
+
+    /**
+     * 校验分支名唯一性
+     *
+     * @param projectId     项目id
+     * @param applicationId 应用id
+     * @param branchName    分支名
+     */
+    @Permission(level = ResourceLevel.PROJECT,
+            roles = {InitRoleCode.PROJECT_OWNER, InitRoleCode.PROJECT_MEMBER})
+    @ApiOperation(value = "校验分支名唯一性")
+    @GetMapping(value = "/check_name")
+    public void checkName(
+            @ApiParam(value = "项目ID")
+            @PathVariable(value = "project_id") Long projectId,
+            @ApiParam(value = "应用ID")
+            @PathVariable(value = "application_id") Long applicationId,
+            @ApiParam(value = "分支名")
+            @RequestParam(value = "branch_name") String branchName) {
+        devopsGitService.checkName(projectId, applicationId, branchName);
     }
 }

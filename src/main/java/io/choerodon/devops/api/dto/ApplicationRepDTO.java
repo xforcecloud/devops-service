@@ -1,7 +1,6 @@
 package io.choerodon.devops.api.dto;
 
 /**
- *
  * @author younger
  * @date 2018/3/30
  */
@@ -11,7 +10,7 @@ public class ApplicationRepDTO {
     private String name;
     private String code;
     private Long projectId;
-    private Long applictionTemplateId;
+    private Long applicationTemplateId;
     private String repoUrl;
     private Boolean isSynchro;
     private Boolean isActive;
@@ -20,6 +19,8 @@ public class ApplicationRepDTO {
     private String description;
     private String sonarUrl;
     private Boolean isFail;
+    private String type;
+    private Boolean permission;
 
     public Long getId() {
         return id;
@@ -53,12 +54,12 @@ public class ApplicationRepDTO {
         this.projectId = projectId;
     }
 
-    public Long getApplictionTemplateId() {
-        return applictionTemplateId;
+    public Long getApplicationTemplateId() {
+        return applicationTemplateId;
     }
 
-    public void setApplictionTemplateId(Long applictionTemplateId) {
-        this.applictionTemplateId = applictionTemplateId;
+    public void setApplicationTemplateId(Long applicationTemplateId) {
+        this.applicationTemplateId = applicationTemplateId;
     }
 
     public String getRepoUrl() {
@@ -109,7 +110,6 @@ public class ApplicationRepDTO {
         this.description = description;
     }
 
-
     public String getSonarUrl() {
         return sonarUrl;
     }
@@ -124,5 +124,21 @@ public class ApplicationRepDTO {
 
     public void setFail(Boolean fail) {
         isFail = fail;
+    }
+
+    public Boolean getPermission() {
+        return permission;
+    }
+
+    public void setPermission(Boolean permission) {
+        this.permission = permission;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 }

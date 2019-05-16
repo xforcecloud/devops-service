@@ -1,14 +1,13 @@
 package io.choerodon.devops.app.service;
 
-import java.util.List;
-
-import org.springframework.web.multipart.MultipartFile;
-
 import io.choerodon.core.domain.Page;
 import io.choerodon.devops.api.dto.C7nCertificationDTO;
 import io.choerodon.devops.api.dto.CertificationDTO;
+import io.choerodon.devops.api.dto.OrgCertificationDTO;
 import io.choerodon.devops.domain.application.valueobject.C7nCertification;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
+
+import java.util.List;
 
 /**
  * Created by n!Ck
@@ -23,11 +22,9 @@ public interface CertificationService {
      *
      * @param projectId        项目id
      * @param certificationDTO 证书
-     * @param key              证书key
-     * @param cert             证书内容
      */
     void create(Long projectId, C7nCertificationDTO certificationDTO,
-                MultipartFile key, MultipartFile cert, Boolean isGitOps);
+                Boolean isGitOps);
 
     C7nCertification getC7nCertification(String name, String type, List<String> domains,
                                          String keyContent, String certContent, String envCode);
@@ -43,4 +40,6 @@ public interface CertificationService {
     Boolean checkCertNameUniqueInEnv(Long envId, String certName);
 
     Long createCertCommandE(String type, Long certId, Long userId);
+
+    List<OrgCertificationDTO> listByProject(Long projectId);
 }

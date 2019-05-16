@@ -12,11 +12,20 @@
         da.is_active appStatus,
         da.id appId,
         dav.creation_date
-        FROM devops_application da
+        FROM
+        devops_application da
         RIGHT JOIN devops_app_version dav ON da.id = dav.app_id
         WHERE da.project_id = #{projectId}
         <if test='appId != null'>
             AND da.id= #{appId}
+        </if>
+        <if test='isProjectOwner != null'>
+            <if test='isProjectOwner == false'>
+                AND (da.is_skip_check_permission = 1 OR (
+                da.is_skip_check_permission = 0
+                AND ( da.id IN ( SELECT daur.app_id FROM devops_app_user_rel daur WHERE daur.iam_user_id = #{userId}
+                ))))
+            </if>
         </if>
         <if test='searchParam != null'>
             <if test='searchParam.version != null and searchParam.version.size > 0'>
@@ -27,7 +36,7 @@
             </if>
         </if>
         <if test='param != null and param != ""'>
-           AND dav.version LIKE CONCAT(CONCAT('%', #{param, jdbcType=VARCHAR}),'%')
+            AND dav.version LIKE CONCAT(CONCAT('%', #{param, jdbcType=VARCHAR}),'%')
         </if>
     </select>
 
@@ -180,6 +189,21 @@
 
     <select id="getLatestVersion" resultType="io.choerodon.devops.infra.dataobject.ApplicationVersionDO">
         select * from devops_app_version where app_id = #{appId} order by id desc limit 1
+    </select>
+
+
+    <select id="listByAppVersionIds" resultType="io.choerodon.devops.infra.dataobject.ApplicationVersionDO">
+        SELECT *
+        FROM
+        devops_app_version dav
+        where 1=1
+        <if test="appVersionIds != null">
+            AND dav.id in
+            <foreach collection="appVersionIds" item="appVersionIds" index="index"
+                     open="(" close=")" separator=",">
+                #{appVersionIds}
+            </foreach>
+        </if>
     </select>
 
 </mapper>

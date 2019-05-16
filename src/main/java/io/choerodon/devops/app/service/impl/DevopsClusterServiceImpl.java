@@ -32,7 +32,6 @@ import io.choerodon.devops.infra.common.util.EnvUtil;
 import io.choerodon.devops.infra.common.util.FileUtil;
 import io.choerodon.devops.infra.common.util.GenerateUUID;
 import io.choerodon.devops.infra.dataobject.iam.ProjectDO;
-import io.choerodon.devops.infra.feign.IamServiceClient;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
 import io.choerodon.websocket.helper.EnvListener;
 
@@ -54,8 +53,6 @@ public class DevopsClusterServiceImpl implements DevopsClusterService {
     @Autowired
     private DevopsClusterProPermissionRepository devopsClusterProPermissionRepository;
     @Autowired
-    private IamServiceClient iamServiceClient;
-    @Autowired
     private IamRepository iamRepository;
     @Autowired
     private EnvUtil envUtil;
@@ -69,6 +66,7 @@ public class DevopsClusterServiceImpl implements DevopsClusterService {
     @Transactional
     public String createCluster(Long organizationId, DevopsClusterReqDTO devopsClusterReqDTO) {
         devopsClusterReqDTO.setCode(organizationId + "-" + devopsClusterReqDTO.getCode());
+        // 插入记录
         DevopsClusterE devopsClusterE = new DevopsClusterE();
         BeanUtils.copyProperties(devopsClusterReqDTO, devopsClusterE);
         devopsClusterE.setToken(GenerateUUID.generateUUID());
@@ -79,12 +77,11 @@ public class DevopsClusterServiceImpl implements DevopsClusterService {
                 DevopsClusterProPermissionE devopsClusterProPermissionE = new DevopsClusterProPermissionE();
                 devopsClusterProPermissionE.setClusterId(devopsClusterE.getId());
                 devopsClusterProPermissionE.setProjectId(projectId);
-                ProjectE projectE = iamRepository.queryIamProject(projectId);
-                devopsClusterProPermissionE.setProjectName(projectE.getName());
-                devopsClusterProPermissionE.setProjectCode(projectE.getCode());
                 devopsClusterProPermissionRepository.insert(devopsClusterProPermissionE);
             }
         }
+
+        // 渲染激活环境的命令参数
         InputStream inputStream = this.getClass().getResourceAsStream("/shell/cluster.sh");
         Map<String, String> params = new HashMap<>();
         params.put("{VERSION}", agentExpectVersion);
@@ -124,9 +121,6 @@ public class DevopsClusterServiceImpl implements DevopsClusterService {
                 DevopsClusterProPermissionE devopsClusterProPermissionE = new DevopsClusterProPermissionE();
                 devopsClusterProPermissionE.setClusterId(clusterId);
                 devopsClusterProPermissionE.setProjectId(addProject);
-                ProjectE projectE = iamRepository.queryIamProject(addProject);
-                devopsClusterProPermissionE.setProjectName(projectE.getName());
-                devopsClusterProPermissionE.setProjectCode(projectE.getCode());
                 devopsClusterProPermissionRepository.insert(devopsClusterProPermissionE);
             });
             projectIds.forEach(deleteProject -> {
@@ -152,9 +146,8 @@ public class DevopsClusterServiceImpl implements DevopsClusterService {
     @Override
     public Page<ProjectDTO> listProjects(Long organizationId, Long clusterId, PageRequest pageRequest,
                                          String[] params) {
-        Page<ProjectDO> projects = iamServiceClient
-                .queryProjectByOrgId(organizationId, pageRequest.getPage(), pageRequest.getSize(), null, params)
-                .getBody();
+        Page<ProjectDO> projects = iamRepository
+                .queryProjectByOrgId(organizationId, pageRequest.getPage(), pageRequest.getSize(), null, params);
         Page<ProjectDTO> pageProjectDTOS = new Page<>();
         List<ProjectDTO> projectDTOS = new ArrayList<>();
         if (projects.getContent() != null) {
@@ -167,13 +160,7 @@ public class DevopsClusterServiceImpl implements DevopsClusterService {
                 projectIds = new ArrayList<>();
             }
             projects.getContent().forEach(projectDO -> {
-                ProjectDTO projectDTO = new ProjectDTO();
-                projectDTO.setId(projectDO.getId());
-                projectDTO.setName(projectDO.getName());
-                projectDTO.setCode(projectDO.getCode());
-                if (projectIds.contains(projectDO.getId())) {
-                    projectDTO.setPermission(true);
-                }
+                ProjectDTO projectDTO = new ProjectDTO(projectDO.getId(), projectDO.getName(), projectDO.getCode(), projectIds.contains(projectDO.getId()));
                 projectDTOS.add(projectDTO);
             });
         }
@@ -214,9 +201,10 @@ public class DevopsClusterServiceImpl implements DevopsClusterService {
     }
 
     @Override
-    public Page<DevopsClusterRepDTO> pageClusters(Long organizationId, PageRequest pageRequest, String params) {
+    public Page<DevopsClusterRepDTO> pageClusters(Long organizationId, Boolean doPage, PageRequest pageRequest,
+                                                  String params) {
         Page<DevopsClusterE> devopsClusterEPage = devopsClusterRepository
-                .pageClusters(organizationId, pageRequest, params);
+                .pageClusters(organizationId, doPage, pageRequest, params);
         Page<DevopsClusterRepDTO> devopsClusterRepDTOPage = new Page<>();
         BeanUtils.copyProperties(devopsClusterEPage, devopsClusterRepDTOPage);
         List<Long> connectedEnvList = envUtil.getConnectedEnvList(envListener);
@@ -232,11 +220,8 @@ public class DevopsClusterServiceImpl implements DevopsClusterService {
     public List<ProjectDTO> listClusterProjects(Long organizationId, Long clusterId) {
         return devopsClusterProPermissionRepository.listByClusterId(clusterId).stream()
                 .map(devopsClusterProPermissionE -> {
-                    ProjectDTO projectDTO = new ProjectDTO();
-                    projectDTO.setId(devopsClusterProPermissionE.getProjectId());
-                    projectDTO.setName(devopsClusterProPermissionE.getProjectName());
-                    projectDTO.setCode(devopsClusterProPermissionE.getProjectCode());
-                    return projectDTO;
+                    ProjectE projectE = iamRepository.queryIamProject(devopsClusterProPermissionE.getProjectId());
+                    return new ProjectDTO(devopsClusterProPermissionE.getProjectId(), projectE.getName(), projectE.getCode(), null);
                 }).collect(Collectors.toList());
     }
 

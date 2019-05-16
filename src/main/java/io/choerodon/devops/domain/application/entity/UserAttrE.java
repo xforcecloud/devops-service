@@ -7,6 +7,8 @@ public class UserAttrE {
 
     private Long iamUserId;
     private Long gitlabUserId;
+    private String gitlabToken;
+    private String gitlabUserName;
 
     public UserAttrE() {
 
@@ -31,5 +33,21 @@ public class UserAttrE {
 
     public void setGitlabUserId(Long gitlabUserId) {
         this.gitlabUserId = gitlabUserId;
+    }
+
+    public String getGitlabToken() {
+        return gitlabToken;
+    }
+
+    public void setGitlabToken(String gitlabToken) {
+        this.gitlabToken = gitlabToken;
+    }
+
+    public String getGitlabUserName() {
+        return gitlabUserName;
+    }
+
+    public void setGitlabUserName(String gitlabUserName) {
+        this.gitlabUserName = gitlabUserName;
     }
 }

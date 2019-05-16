@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 import springfox.documentation.annotations.ApiIgnore;
 
 import io.choerodon.core.domain.Page;
@@ -18,6 +17,7 @@ import io.choerodon.core.iam.InitRoleCode;
 import io.choerodon.core.iam.ResourceLevel;
 import io.choerodon.devops.api.dto.C7nCertificationDTO;
 import io.choerodon.devops.api.dto.CertificationDTO;
+import io.choerodon.devops.api.dto.OrgCertificationDTO;
 import io.choerodon.devops.app.service.CertificationService;
 import io.choerodon.mybatis.pagehelper.annotation.SortDefault;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
@@ -43,8 +43,6 @@ public class CertificationController {
      *
      * @param projectId     项目id
      * @param certification 证书名
-     * @param key           key文件
-     * @param cert          cert文件
      * @return 201, "Created"
      */
     @Permission(level = ResourceLevel.PROJECT, roles = {InitRoleCode.PROJECT_OWNER,
@@ -55,12 +53,8 @@ public class CertificationController {
             @ApiParam(value = "项目ID", required = true)
             @PathVariable(value = "project_id") Long projectId,
             @ApiParam(value = "证书", required = true)
-            @ModelAttribute C7nCertificationDTO certification,
-            @ApiParam(value = "key文件")
-            @RequestParam(value = "key", required = false) MultipartFile key,
-            @ApiParam(value = "cert文件")
-            @RequestParam(value = "cert", required = false) MultipartFile cert) {
-        certificationService.create(projectId, certification, key, cert, false);
+            @RequestBody C7nCertificationDTO certification) {
+        certificationService.create(projectId, certification, false);
         return new ResponseEntity<>(HttpStatus.CREATED);
     }
 
@@ -161,4 +155,24 @@ public class CertificationController {
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.certification.checkUnique"));
     }
+
+
+    /**
+     * 查询项目下有权限的组织层证书
+     *
+     * @param projectId 项目id
+     */
+    @Permission(level = ResourceLevel.PROJECT,
+            roles = {InitRoleCode.PROJECT_OWNER,
+                    InitRoleCode.PROJECT_MEMBER})
+    @ApiOperation(value = "查询项目下有权限的组织层证书")
+    @GetMapping("/list_org_cert")
+    public ResponseEntity<List<OrgCertificationDTO>> listOrgCert(
+            @ApiParam(value = "项目id", required = true)
+            @PathVariable(value = "project_id") Long projectId) {
+        return Optional.ofNullable(certificationService.listByProject(projectId))
+                .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
+                .orElseThrow(() -> new CommonException("error.certification.page"));
+    }
+
 }

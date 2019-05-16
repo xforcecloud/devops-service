@@ -11,9 +11,13 @@ public class DevopsEnviromentRepDTO {
     private String code;
     private Boolean isActive;
     private Boolean isConnected;
+    private String clusterName;
+    private Long clusterId;
     private Long sequence;
     private Long devopsEnvGroupId;
     private Boolean permission;
+    private Boolean isSynchro;
+    private Boolean isFailed;
 
     public Long getId() {
         return id;
@@ -88,4 +92,35 @@ public class DevopsEnviromentRepDTO {
         this.permission = permission;
     }
 
+    public Boolean getSynchro() {
+        return isSynchro;
+    }
+
+    public void setSynchro(Boolean synchro) {
+        isSynchro = synchro;
+    }
+
+    public Boolean getFailed() {
+        return isFailed;
+    }
+
+    public void setFailed(Boolean failed) {
+        isFailed = failed;
+    }
+
+    public String getClusterName() {
+        return clusterName;
+    }
+
+    public void setClusterName(String clusterName) {
+        this.clusterName = clusterName;
+    }
+
+    public Long getClusterId() {
+        return clusterId;
+    }
+
+    public void setClusterId(Long clusterId) {
+        this.clusterId = clusterId;
+    }
 }

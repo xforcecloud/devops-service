@@ -1,8 +1,11 @@
 package io.choerodon.devops.domain.service;
 
+import java.util.List;
+import java.util.Map;
+
 import io.choerodon.devops.domain.application.entity.ApplicationE;
-import io.choerodon.devops.domain.application.entity.ApplicationInstanceE;
 import io.choerodon.devops.domain.application.entity.ApplicationVersionE;
+import io.choerodon.devops.domain.application.entity.DevopsClusterE;
 import io.choerodon.devops.domain.application.entity.DevopsEnvironmentE;
 
 /**
@@ -11,7 +14,9 @@ import io.choerodon.devops.domain.application.entity.DevopsEnvironmentE;
 public interface DeployService {
     void sendCommand(DevopsEnvironmentE devopsEnvironmentE);
 
-    void deploy(ApplicationE applicationE, ApplicationVersionE applicationVersionE, ApplicationInstanceE applicationInstanceE, DevopsEnvironmentE devopsEnvironmentE, String values, Long commandId);
+    void deploy(ApplicationE applicationE, ApplicationVersionE applicationVersionE,
+                String releaseName, DevopsEnvironmentE devopsEnvironmentE, String values,
+                Long commandId);
 
     void initCluster(Long clusterId);
 
@@ -19,4 +24,11 @@ public interface DeployService {
 
     void initEnv(DevopsEnvironmentE devopsEnvironmentE, Long clusterId);
 
+    void deployTestApp(ApplicationE applicationE, ApplicationVersionE applicationVersionE, String releaseName, Long clusterId, String values);
+
+    void getTestAppStatus(Map<Long, List<String>> testReleases);
+
+    void upgradeCluster(DevopsClusterE devopsClusterE);
+
+    void createCertManager(Long clusterId);
 }

@@ -6,13 +6,6 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import io.kubernetes.client.custom.IntOrString;
-import io.kubernetes.client.models.V1beta1HTTPIngressPath;
-import io.kubernetes.client.models.V1beta1Ingress;
-import io.kubernetes.client.models.V1beta1IngressBackend;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import io.choerodon.core.exception.CommonException;
 import io.choerodon.devops.api.dto.DevopsIngressDTO;
 import io.choerodon.devops.api.dto.DevopsIngressPathDTO;
@@ -30,10 +23,17 @@ import io.choerodon.devops.infra.common.util.enums.CommandType;
 import io.choerodon.devops.infra.common.util.enums.GitOpsObjectError;
 import io.choerodon.devops.infra.common.util.enums.ObjectType;
 import io.choerodon.devops.infra.dataobject.DevopsIngressDO;
+import io.kubernetes.client.custom.IntOrString;
+import io.kubernetes.client.models.V1beta1HTTPIngressPath;
+import io.kubernetes.client.models.V1beta1Ingress;
+import io.kubernetes.client.models.V1beta1IngressBackend;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service
 public class HandlerIngressRelationsServiceImpl implements HandlerObjectFileRelationsService<V1beta1Ingress> {
 
+    private static final String CREATE = "create";
     public static final String INGRESS = "Ingress";
     private static final String GIT_SUFFIX = "/.git";
     Pattern pattern = Pattern.compile("^[-\\+]?[\\d]*$");
@@ -80,20 +80,22 @@ public class HandlerIngressRelationsServiceImpl implements HandlerObjectFileRela
         //删除ingress,删除文件对象关联关系
         beforeIngress.stream().forEach(ingressName -> {
             DevopsIngressE devopsIngressE = devopsIngressRepository.selectByEnvAndName(envId, ingressName);
-            DevopsEnvCommandE devopsEnvCommandE = devopsEnvCommandRepository.query(devopsIngressE.getCommandId());
-            if (!devopsEnvCommandE.getCommandType().equals(CommandType.DELETE.getType())) {
-                DevopsEnvCommandE devopsEnvCommandE1 = new DevopsEnvCommandE();
-                devopsEnvCommandE1.setCommandType(CommandType.DELETE.getType());
-                devopsEnvCommandE1.setObject(ObjectType.INGRESS.getType());
-                devopsEnvCommandE1.setCreatedBy(userId);
-                devopsEnvCommandE1.setStatus(CommandStatus.OPERATING.getStatus());
-                devopsEnvCommandE1.setObjectId(devopsIngressE.getId());
-                DevopsIngressDO devopsIngressDO = devopsIngressRepository.getIngress(devopsIngressE.getId());
-                devopsIngressDO.setCommandId(devopsEnvCommandRepository.create(devopsEnvCommandE1).getId());
-                devopsIngressRepository.updateIngress(devopsIngressDO);
+            if (devopsIngressE != null) {
+                DevopsEnvCommandE devopsEnvCommandE = devopsEnvCommandRepository.query(devopsIngressE.getCommandId());
+                if (devopsEnvCommandE == null || (!devopsEnvCommandE.getCommandType().equals(CommandType.DELETE.getType()))) {
+                    DevopsEnvCommandE devopsEnvCommandE1 = new DevopsEnvCommandE();
+                    devopsEnvCommandE1.setCommandType(CommandType.DELETE.getType());
+                    devopsEnvCommandE1.setObject(ObjectType.INGRESS.getType());
+                    devopsEnvCommandE1.setCreatedBy(userId);
+                    devopsEnvCommandE1.setStatus(CommandStatus.OPERATING.getStatus());
+                    devopsEnvCommandE1.setObjectId(devopsIngressE.getId());
+                    DevopsIngressDO devopsIngressDO = devopsIngressRepository.getIngress(devopsIngressE.getId());
+                    devopsIngressDO.setCommandId(devopsEnvCommandRepository.create(devopsEnvCommandE1).getId());
+                    devopsIngressRepository.updateIngress(devopsIngressDO);
+                }
+                devopsIngressService.deleteIngressByGitOps(devopsIngressE.getId());
+                devopsEnvFileResourceRepository.deleteByEnvIdAndResource(envId, devopsIngressE.getId(), INGRESS);
             }
-            devopsIngressService.deleteIngressByGitOps(devopsIngressE.getId());
-            devopsEnvFileResourceRepository.deleteByEnvIdAndResource(envId, devopsIngressE.getId(), INGRESS);
         });
         //新增ingress
         addIngress(objectPath, envId, projectId, addV1beta1Ingress, path, userId);
@@ -127,8 +129,9 @@ public class HandlerIngressRelationsServiceImpl implements HandlerObjectFileRela
                                     .selectByEnvAndName(envId, v1beta1Ingress.getMetadata().getName());
                         }
                         DevopsEnvCommandE devopsEnvCommandE = devopsEnvCommandRepository.query(devopsIngressE.getCommandId());
+                        //0.9.0-0.10.0,新增commandId,如果gitops库如果只是移动对象到另外一个文件，避免npe
                         if (devopsEnvCommandE == null) {
-                            devopsEnvCommandE = createDevopsEnvCommandE("create");
+                            devopsEnvCommandE = createDevopsEnvCommandE(CREATE);
                             devopsEnvCommandE.setObjectId(devopsIngressE.getId());
                             DevopsIngressDO devopsIngressDO = devopsIngressRepository.getIngress(devopsIngressE.getId());
                             devopsIngressDO.setCommandId(devopsEnvCommandE.getId());
@@ -183,7 +186,14 @@ public class HandlerIngressRelationsServiceImpl implements HandlerObjectFileRela
                                     .selectByEnvAndName(envId, v1beta1Ingress.getMetadata().getName());
                             devopsEnvCommandE = devopsEnvCommandRepository.query(newdevopsIngressE.getCommandId());
                         }
-                        devopsEnvCommandE = getDevopsEnvCommandE(devopsIngressE, devopsEnvCommandE);
+                        //0.9.0-0.10.0,新增commandId,如果gitops库如果一个文件里面有多个对象，只操作其中一个对象，其它对象更新commitsha避免npe
+                        if (devopsEnvCommandE == null) {
+                            devopsEnvCommandE = createDevopsEnvCommandE(CREATE);
+                            devopsEnvCommandE.setObjectId(devopsIngressE.getId());
+                            DevopsIngressDO devopsIngressDO = devopsIngressRepository.getIngress(devopsIngressE.getId());
+                            devopsIngressDO.setCommandId(devopsEnvCommandE.getId());
+                            devopsIngressRepository.updateIngress(devopsIngressDO);
+                        }
                         devopsEnvCommandE.setSha(GitUtil.getFileLatestCommit(path + GIT_SUFFIX, filePath));
                         devopsEnvCommandRepository.update(devopsEnvCommandE);
                         DevopsEnvFileResourceE devopsEnvFileResourceE = devopsEnvFileResourceRepository
@@ -201,17 +211,6 @@ public class HandlerIngressRelationsServiceImpl implements HandlerObjectFileRela
                         throw new GitOpsExplainException(e.getMessage(), filePath, errorCode, e);
                     }
                 });
-    }
-
-    private DevopsEnvCommandE getDevopsEnvCommandE(DevopsIngressE devopsIngressE, DevopsEnvCommandE devopsEnvCommandE) {
-        if (devopsEnvCommandE == null) {
-            devopsEnvCommandE = createDevopsEnvCommandE("create");
-            devopsEnvCommandE.setObjectId(devopsIngressE.getId());
-            DevopsIngressDO devopsIngressDO = devopsIngressRepository.getIngress(devopsIngressE.getId());
-            devopsIngressDO.setCommandId(devopsEnvCommandE.getId());
-            devopsIngressRepository.updateIngress(devopsIngressDO);
-        }
-        return devopsEnvCommandE;
     }
 
     private void checkIngressAppVersion(
@@ -247,30 +246,24 @@ public class HandlerIngressRelationsServiceImpl implements HandlerObjectFileRela
             } catch (Exception e) {
                 throw new GitOpsExplainException(e.getMessage(), filePath);
             }
-            DevopsEnvironmentE devopsEnvironmentE = devopsEnvironmentRepository.queryById(envId);
             V1beta1IngressBackend backend = v1beta1HTTPIngressPath.getBackend();
             String serviceName = backend.getServiceName();
             DevopsServiceE devopsServiceE = devopsServiceRepository.selectByNameAndEnvId(
                     serviceName, envId);
-            if (devopsServiceE == null) {
-                throw new GitOpsExplainException(GitOpsObjectError.SERVICE_RELATED_INGRESS_NOT_FOUND.getError(), filePath, serviceName, null);
-            }
-            Long servicePort;
+            Long servicePort = null;
             IntOrString backendServicePort = backend.getServicePort();
             if (backendServicePort.isInteger() || pattern.matcher(TypeUtil.objToString(backendServicePort)).matches()) {
                 servicePort = TypeUtil.objToLong(backendServicePort);
-                if (devopsServiceE.getPorts().stream()
-                        .map(PortMapE::getPort).noneMatch(t -> t.equals(servicePort))) {
-                    throw new GitOpsExplainException(GitOpsObjectError.INGRESS_PATH_PORT_NOT_BELONG_TO_SERVICE.getError(),
-                            filePath, serviceName, null);
-                }
             } else {
-                servicePort = devopsServiceE.getPorts().get(0).getPort();
+                if (devopsServiceE != null) {
+                    servicePort = devopsServiceE.getPorts().get(0).getPort();
+                }
             }
             DevopsIngressPathDTO devopsIngressPathDTO = new DevopsIngressPathDTO();
             devopsIngressPathDTO.setPath(path);
             devopsIngressPathDTO.setServicePort(servicePort);
-            devopsIngressPathDTO.setServiceId(devopsServiceE.getId());
+            devopsIngressPathDTO.setServiceName(serviceName);
+            devopsIngressPathDTO.setServiceId(devopsServiceE == null ? null : devopsServiceE.getId());
             devopsIngressPathDTOS.add(devopsIngressPathDTO);
         }
         devopsIngressDTO.setPathList(devopsIngressPathDTOS);
@@ -279,7 +272,7 @@ public class HandlerIngressRelationsServiceImpl implements HandlerObjectFileRela
 
     private DevopsEnvCommandE createDevopsEnvCommandE(String type) {
         DevopsEnvCommandE devopsEnvCommandE = new DevopsEnvCommandE();
-        if (type.equals("create")) {
+        if (type.equals(CREATE)) {
             devopsEnvCommandE.setCommandType(CommandType.CREATE.getType());
         } else {
             devopsEnvCommandE.setCommandType(CommandType.UPDATE.getType());

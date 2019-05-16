@@ -49,7 +49,10 @@ public class ApplicationRepositoryImpl implements ApplicationRepository {
 
     @Override
     public void checkName(Long projectId, String appName) {
-         if (applicationMapper.selectOneWithCaseSensitive(projectId, appName) != null) {
+        ApplicationDO applicationDO = new ApplicationDO();
+        applicationDO.setProjectId(projectId);
+        applicationDO.setName(appName);
+        if (applicationMapper.selectOne(applicationDO) != null) {
             throw new CommonException("error.name.exist");
         }
     }
@@ -88,24 +91,31 @@ public class ApplicationRepositoryImpl implements ApplicationRepository {
 
     @Override
     public Page<ApplicationE> listByOptions(Long projectId, Boolean isActive, Boolean hasVersion,
-                                            PageRequest pageRequest, String params) {
-        Page<ApplicationDO> applicationES;
+                                            String type, Boolean doPage, PageRequest pageRequest, String params) {
         Map maps = gson.fromJson(params, Map.class);
-        applicationES = PageHelper
-                .doPageAndSort(pageRequest, () -> applicationMapper.list(projectId, isActive, hasVersion,
-                        TypeUtil.cast(maps.get(TypeUtil.SEARCH_PARAM)),
-                        TypeUtil.cast(maps.get(TypeUtil.PARAM)), checkSortIsEmpty(pageRequest)));
-
+        Page<ApplicationDO> applicationES = new Page<>();
+        //是否需要分页
+        if (doPage != null && !doPage) {
+            applicationES.setContent(applicationMapper.list(projectId, isActive, hasVersion, type,
+                    TypeUtil.cast(maps.get(TypeUtil.SEARCH_PARAM)),
+                    TypeUtil.cast(maps.get(TypeUtil.PARAM)), checkSortIsEmpty(pageRequest)));
+        } else {
+            applicationES = PageHelper
+                    .doPageAndSort(pageRequest, () -> applicationMapper.list(projectId, isActive, hasVersion, type,
+                            TypeUtil.cast(maps.get(TypeUtil.SEARCH_PARAM)),
+                            TypeUtil.cast(maps.get(TypeUtil.PARAM)), checkSortIsEmpty(pageRequest)));
+        }
         return ConvertPageHelper.convertPage(applicationES, ApplicationE.class);
     }
 
     @Override
-    public Page<ApplicationE> listCodeRepository(Long projectId, PageRequest pageRequest, String params) {
+    public Page<ApplicationE> listCodeRepository(Long projectId, PageRequest pageRequest, String params,
+                                                 Boolean isProjectOwner, Long userId) {
         Page<ApplicationDO> applicationES;
         Map maps = gson.fromJson(params, Map.class);
         applicationES = PageHelper.doPageAndSort(pageRequest, () -> applicationMapper.listCodeRepository(projectId,
                 TypeUtil.cast(maps.get(TypeUtil.SEARCH_PARAM)),
-                TypeUtil.cast(maps.get(TypeUtil.PARAM))));
+                TypeUtil.cast(maps.get(TypeUtil.PARAM)), isProjectOwner, userId));
         return ConvertPageHelper.convertPage(applicationES, ApplicationE.class);
     }
 
@@ -192,18 +202,28 @@ public class ApplicationRepositoryImpl implements ApplicationRepository {
     }
 
     @Override
-    public ApplicationE getAppByGitLabId(Long gitLabProjectId) {
-        ApplicationDO applicationDO = new ApplicationDO();
-        applicationDO.setGitlabProjectId(gitLabProjectId.intValue());
-        try {
-            return ConvertHelper.convert(applicationMapper.selectOne(applicationDO), ApplicationE.class);
-        } catch (Exception e) {
-            return null;
-        }
+    public List<ApplicationE> listByGitLabProjectIds(List<Long> gitLabProjectIds) {
+        return ConvertHelper
+                .convertList(applicationMapper.listByGitLabProjectIds(gitLabProjectIds), ApplicationE.class);
     }
 
     @Override
     public void delete(Long appId) {
         applicationMapper.deleteByPrimaryKey(appId);
+    }
+
+    @Override
+    public List<ApplicationE> listByProjectIdAndSkipCheck(Long projectId) {
+        ApplicationDO applicationDO = new ApplicationDO();
+        applicationDO.setProjectId(projectId);
+        applicationDO.setIsSkipCheckPermission(true);
+        return ConvertHelper.convertList(applicationMapper.select(applicationDO), ApplicationE.class);
+    }
+
+    @Override
+    public List<ApplicationE> listByProjectId(Long projectId) {
+        ApplicationDO applicationDO = new ApplicationDO();
+        applicationDO.setProjectId(projectId);
+        return ConvertHelper.convertList(applicationMapper.select(applicationDO), ApplicationE.class);
     }
 }

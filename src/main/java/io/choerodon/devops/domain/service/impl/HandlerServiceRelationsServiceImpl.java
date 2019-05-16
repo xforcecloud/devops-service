@@ -7,11 +7,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.google.gson.Gson;
-import io.kubernetes.client.models.V1Service;
-import org.apache.commons.lang.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import io.choerodon.core.exception.CommonException;
 import io.choerodon.devops.api.dto.DevopsServiceReqDTO;
 import io.choerodon.devops.api.validator.DevopsServiceValidator;
@@ -25,8 +20,11 @@ import io.choerodon.devops.infra.common.util.GitUtil;
 import io.choerodon.devops.infra.common.util.TypeUtil;
 import io.choerodon.devops.infra.common.util.enums.CommandStatus;
 import io.choerodon.devops.infra.common.util.enums.CommandType;
-import io.choerodon.devops.infra.common.util.enums.GitOpsObjectError;
 import io.choerodon.devops.infra.common.util.enums.ObjectType;
+import io.kubernetes.client.models.V1Service;
+import org.apache.commons.lang.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service
 public class HandlerServiceRelationsServiceImpl implements HandlerObjectFileRelationsService<V1Service> {
@@ -83,19 +81,21 @@ public class HandlerServiceRelationsServiceImpl implements HandlerObjectFileRela
         //删除service,和文件对象关联关系
         beforeService.forEach(serviceName -> {
             DevopsServiceE devopsServiceE = devopsServiceRepository.selectByNameAndEnvId(serviceName, envId);
-            DevopsEnvCommandE devopsEnvCommandE = devopsEnvCommandRepository.query(devopsServiceE.getCommandId());
-            if (!devopsEnvCommandE.getCommandType().equals(CommandType.DELETE.getType())) {
-                DevopsEnvCommandE devopsEnvCommandE1 = new DevopsEnvCommandE();
-                devopsEnvCommandE1.setCommandType(CommandType.DELETE.getType());
-                devopsEnvCommandE1.setCreatedBy(userId);
-                devopsEnvCommandE1.setObject(ObjectType.SERVICE.getType());
-                devopsEnvCommandE1.setStatus(CommandStatus.OPERATING.getStatus());
-                devopsEnvCommandE1.setObjectId(devopsServiceE.getId());
-                devopsServiceE.setCommandId(devopsEnvCommandRepository.create(devopsEnvCommandE1).getId());
-                devopsServiceRepository.update(devopsServiceE);
+            if(devopsServiceE!=null) {
+                DevopsEnvCommandE devopsEnvCommandE = devopsEnvCommandRepository.query(devopsServiceE.getCommandId());
+                if (devopsEnvCommandE == null || (!devopsEnvCommandE.getCommandType().equals(CommandType.DELETE.getType()))) {
+                    DevopsEnvCommandE devopsEnvCommandE1 = new DevopsEnvCommandE();
+                    devopsEnvCommandE1.setCommandType(CommandType.DELETE.getType());
+                    devopsEnvCommandE1.setCreatedBy(userId);
+                    devopsEnvCommandE1.setObject(ObjectType.SERVICE.getType());
+                    devopsEnvCommandE1.setStatus(CommandStatus.OPERATING.getStatus());
+                    devopsEnvCommandE1.setObjectId(devopsServiceE.getId());
+                    devopsServiceE.setCommandId(devopsEnvCommandRepository.create(devopsEnvCommandE1).getId());
+                    devopsServiceRepository.update(devopsServiceE);
+                }
+                devopsServiceService.deleteDevopsServiceByGitOps(devopsServiceE.getId());
+                devopsEnvFileResourceRepository.deleteByEnvIdAndResource(envId, devopsServiceE.getId(), SERVICE);
             }
-            devopsServiceService.deleteDevopsServiceByGitOps(devopsServiceE.getId());
-            devopsEnvFileResourceRepository.deleteByEnvIdAndResource(envId, devopsServiceE.getId(), SERVICE);
         });
     }
 
@@ -113,8 +113,7 @@ public class HandlerServiceRelationsServiceImpl implements HandlerObjectFileRela
                         //初始化网络参数,更新网络和网络关联关系
                         DevopsServiceReqDTO devopsServiceReqDTO = getDevopsServiceDTO(
                                 v1Service,
-                                envId,
-                                filePath);
+                                envId);
                         Boolean isNotChange = checkIsNotChange(devopsServiceE, devopsServiceReqDTO);
                         DevopsEnvCommandE devopsEnvCommandE = devopsEnvCommandRepository.query(devopsServiceE.getCommandId());
                         if (!isNotChange) {
@@ -123,6 +122,7 @@ public class HandlerServiceRelationsServiceImpl implements HandlerObjectFileRela
                                     .selectByNameAndEnvId(v1Service.getMetadata().getName(), envId);
                             devopsEnvCommandE = devopsEnvCommandRepository.query(newDevopsServiceE.getCommandId());
                         }
+                        //0.9.0-0.10.0,新增commandId,如果gitops库如果一个文件里面有多个对象，只操作其中一个对象，其它对象更新commitsha避免npe
                         if (devopsEnvCommandE == null) {
                             devopsEnvCommandE = createDevopsEnvCommandE("update");
                             devopsEnvCommandE.setObjectId(devopsServiceE.getId());
@@ -162,13 +162,13 @@ public class HandlerServiceRelationsServiceImpl implements HandlerObjectFileRela
                         if (devopsServiceE == null) {
                             devopsServiceReqDTO = getDevopsServiceDTO(
                                     v1Service,
-                                    envId,
-                                    filePath);
+                                    envId);
                             devopsServiceService.insertDevopsServiceByGitOps(projectId, devopsServiceReqDTO, userId);
                             devopsServiceE = devopsServiceRepository.selectByNameAndEnvId(
                                     devopsServiceReqDTO.getName(), envId);
                         }
                         DevopsEnvCommandE devopsEnvCommandE = devopsEnvCommandRepository.query(devopsServiceE.getCommandId());
+                        //0.9.0-0.10.0,新增commandId,如果gitops库如果只是移动对象到另外一个文件，避免npe
                         if (devopsEnvCommandE == null) {
                             devopsEnvCommandE = createDevopsEnvCommandE("create");
                             devopsEnvCommandE.setObjectId(devopsServiceE.getId());
@@ -195,7 +195,7 @@ public class HandlerServiceRelationsServiceImpl implements HandlerObjectFileRela
 
 
     private DevopsServiceReqDTO getDevopsServiceDTO(V1Service v1Service,
-                                                    Long envId, String filePath) {
+                                                    Long envId) {
         DevopsServiceReqDTO devopsServiceReqDTO = new DevopsServiceReqDTO();
         if (v1Service.getSpec().getExternalIPs() != null) {
             devopsServiceReqDTO.setExternalIp(String.join(",", v1Service.getSpec().getExternalIPs()));
@@ -222,9 +222,13 @@ public class HandlerServiceRelationsServiceImpl implements HandlerObjectFileRela
             String instancesCode = v1Service.getMetadata().getAnnotations()
                     .get("choerodon.io/network-service-instances");
             if (instancesCode != null) {
-                List<Long> instanceIdList = Arrays.stream(instancesCode.split("\\+")).parallel()
-                        .map(t -> getInstanceId(t, envId, devopsServiceReqDTO, filePath))
-                        .collect(Collectors.toList());
+                List<String> instanceIdList = Arrays.stream(instancesCode.split("\\+")).parallel().map(t -> {
+                    ApplicationInstanceE applicationInstanceE = applicationInstanceRepository.selectByCode(t, envId);
+                    if (applicationInstanceE != null) {
+                        devopsServiceReqDTO.setAppId(applicationInstanceE.getApplicationE().getId());
+                    }
+                    return t;
+                }).collect(Collectors.toList());
                 devopsServiceReqDTO.setAppInstance(instanceIdList);
             }
         }
@@ -234,21 +238,6 @@ public class HandlerServiceRelationsServiceImpl implements HandlerObjectFileRela
         return devopsServiceReqDTO;
     }
 
-    private Long getInstanceId(String instanceCode, Long envId, DevopsServiceReqDTO devopsServiceReqDTO, String filePath) {
-        try {
-            ApplicationInstanceE instanceE = applicationInstanceRepository.selectByCode(instanceCode, envId);
-            if (devopsServiceReqDTO.getAppId() == null) {
-                devopsServiceReqDTO.setAppId(instanceE.getApplicationE().getId());
-            }
-            if (!devopsServiceReqDTO.getAppId().equals(instanceE.getApplicationE().getId())) {
-                throw new GitOpsExplainException(GitOpsObjectError.INSTANCE_APP_ID_NOT_SAME.getError(), filePath);
-            }
-            return instanceE.getId();
-        } catch (Exception e) {
-            throw new GitOpsExplainException(GitOpsObjectError.INSTANCE_RELATED_SERVICE_NOT_FOUND.getError(), filePath, instanceCode, e);
-        }
-
-    }
 
     private void checkServiceName(
             V1Service v1Service) {
@@ -266,11 +255,8 @@ public class HandlerServiceRelationsServiceImpl implements HandlerObjectFileRela
                 devopsServiceInstanceRepository.selectByServiceId(devopsServiceE.getId());
         Boolean isUpdate = false;
         if (devopsServiceReqDTO.getAppId() != null && devopsServiceE.getAppId() != null) {
-            if (!devopsServiceE.getAppId().equals(devopsServiceReqDTO.getAppId())) {
-                checkOptions(devopsServiceE.getEnvId(), devopsServiceReqDTO.getAppId(), null);
-            }
             if (devopsServiceReqDTO.getAppInstance() != null) {
-                List<String> newInstanceCode = devopsServiceReqDTO.getAppInstance().stream().map(instanceId -> applicationInstanceRepository.selectById(instanceId).getCode()).collect(Collectors.toList());
+                List<String> newInstanceCode = devopsServiceReqDTO.getAppInstance();
                 List<String> oldInstanceCode = devopsServiceInstanceEList.stream().map(DevopsServiceAppInstanceE::getCode).collect(Collectors.toList());
                 for (String instanceCode : newInstanceCode) {
                     if (!oldInstanceCode.contains(instanceCode)) {
@@ -312,9 +298,4 @@ public class HandlerServiceRelationsServiceImpl implements HandlerObjectFileRela
     }
 
 
-    private void checkOptions(Long envId, Long appId, Long appInstanceId) {
-        if (applicationInstanceRepository.checkOptions(envId, appId, appInstanceId) == 0) {
-            throw new CommonException("error.instances.query");
-        }
-    }
 }

@@ -6,7 +6,6 @@ import io.choerodon.asgard.saga.feign.SagaClient;
 import io.choerodon.core.domain.Page;
 import io.choerodon.devops.api.dto.*;
 import io.choerodon.devops.domain.application.event.DevOpsAppPayload;
-import io.choerodon.devops.domain.application.event.GitlabProjectPayload;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
 
 /**
@@ -18,10 +17,10 @@ public interface ApplicationService {
      * 项目下创建应用
      *
      * @param projectId      项目Id
-     * @param applicationDTO 应用信息
+     * @param applicationReqDTO 应用信息
      * @return ApplicationTemplateDTO
      */
-    ApplicationRepDTO create(Long projectId, ApplicationDTO applicationDTO);
+    ApplicationRepDTO create(Long projectId, ApplicationReqDTO applicationReqDTO);
 
 
     /**
@@ -38,7 +37,6 @@ public interface ApplicationService {
      *
      * @param projectId     项目id
      * @param applicationId 应用Id
-     * @return ApplicationRepDTO
      */
     void delete(Long projectId, Long applicationId);
 
@@ -74,6 +72,8 @@ public interface ApplicationService {
     Page<ApplicationRepDTO> listByOptions(Long projectId,
                                           Boolean isActive,
                                           Boolean hasVersion,
+                                          String type,
+                                          Boolean doPage,
                                           PageRequest pageRequest,
                                           String params);
 
@@ -87,9 +87,11 @@ public interface ApplicationService {
 
     /**
      * 设置应用创建失败状态
+     *
      * @param gitlabProjectEventDTO 应用信息
+     * @param projectId 可为空
      */
-    void setAppErrStatus(String gitlabProjectEventDTO);
+    void setAppErrStatus(String gitlabProjectEventDTO, Long projectId);
 
     Boolean applicationExist(String uuid);
 
@@ -169,7 +171,7 @@ public interface ApplicationService {
      * @param params      查询参数
      * @return list of ApplicationRepDTO
      */
-    Page<ApplicationDTO> listByActiveAndPubAndVersion(Long projectId, PageRequest pageRequest, String params);
+    Page<ApplicationReqDTO> listByActiveAndPubAndVersion(Long projectId, PageRequest pageRequest, String params);
 
     /**
      * 项目下分页查询代码仓库
@@ -179,9 +181,15 @@ public interface ApplicationService {
      * @param params      查询参数
      * @return page of ApplicationRepDTO
      */
-    Page<ApplicationRepDTO> listCodeRepository(Long projectId,
-                                               PageRequest pageRequest,
-                                               String params);
+    Page<ApplicationRepDTO> listCodeRepository(Long projectId, PageRequest pageRequest, String params);
+
+    /**
+     * 获取应用下所有用户权限
+     *
+     * @param appId 应用id
+     * @return List
+     */
+    List<AppUserPermissionRepDTO> listAllUserPermission(Long appId);
 
     void initMockService(SagaClient sagaClient);
 }

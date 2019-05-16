@@ -1,12 +1,13 @@
 package io.choerodon.devops.app.service;
 
-import java.util.Date;
-import java.util.List;
-
 import io.choerodon.core.domain.Page;
 import io.choerodon.devops.api.dto.*;
 import io.choerodon.devops.domain.application.valueobject.ReplaceResult;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Created by Zenger on 2018/4/12.
@@ -157,15 +158,94 @@ public interface ApplicationInstanceService {
      */
     DevopsEnvPreviewDTO listByEnv(Long projectId, Long envId, String params);
 
+    /**
+     * 校验实例名唯一性
+     *
+     * @param instanceName 实例名
+     */
+    void checkName(String instanceName);
+
     ReplaceResult getReplaceResult(String versionValue, String deployValue);
 
     ReplaceResult queryUpgradeValue(Long instanceId, Long versionId);
 
+    /**
+     * 获取部署时长报表
+     *
+     * @param projectId 项目id
+     * @param envId     环境id
+     * @param appIds    应用id
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @return List
+     */
     DeployTimeDTO listDeployTime(Long projectId, Long envId, Long[] appIds, Date startTime, Date endTime);
 
+    /**
+     * 获取部署次数报表
+     *
+     * @param projectId 项目id
+     * @param envIds    环境id
+     * @param appId     应用id
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @return List
+     */
     DeployFrequencyDTO listDeployFrequency(Long projectId, Long[] envIds, Long appId, Date startTime, Date endTime);
 
+    /**
+     * 获取部署次数报表table
+     *
+     * @param projectId 项目id
+     * @param envIds    环境id
+     * @param appId     应用id
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @return List
+     */
     Page<DeployDetailDTO> pageDeployFrequencyDetail(Long projectId, PageRequest pageRequest, Long[] envIds, Long appId, Date startTime, Date endTime);
 
+    /**
+     * 获取部署时长报表table
+     *
+     * @param projectId 项目id
+     * @param envId     环境id
+     * @param appIds    应用id
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @return List
+     */
     Page<DeployDetailDTO> pageDeployTimeDetail(Long projectId, PageRequest pageRequest, Long[] appIds, Long envId, Date startTime, Date endTime);
+
+    /**
+     * 部署自动化测试应用
+     *
+     * @param applicationDeployDTO 部署信息
+     * @return ApplicationInstanceDTO
+     */
+    void deployTestApp(ApplicationDeployDTO applicationDeployDTO);
+
+    /**
+     * 查询自动化测试应用实例状态
+     *
+     * @param testReleases
+     */
+
+    /**
+     * 根据实例id获取更多部署详情(json格式）
+     * @param instanceId 实例id
+     * @return 详情json字符串
+     */
+    InstanceDeploymentDTO getDeploymentJsonDetailsByInstanceId(Long instanceId, String deploymentName);
+
+    /**
+     * 根据实例id获取更多部署详情(yaml格式)
+     * @param instanceId 实例id
+     * @return 详情yaml字符串
+     */
+    InstanceDeploymentDTO getDeploymentYamlDetailsByInstanceId(Long instanceId, String deploymentName);
+
+
+    void getTestAppStatus(Map<Long,List<String>> testReleases);
+
 }

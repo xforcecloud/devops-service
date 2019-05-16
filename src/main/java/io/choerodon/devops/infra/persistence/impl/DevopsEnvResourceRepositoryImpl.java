@@ -42,17 +42,10 @@ public class DevopsEnvResourceRepositoryImpl implements DevopsEnvResourceReposit
     }
 
     @Override
-    public List<DevopsEnvResourceE> listJobByInstanceId(Long instanceId) {
+    public List<DevopsEnvResourceE> listJobs(Long commandId) {
         return ConvertHelper.convertList(
-                devopsEnvResourceMapper.listJobByInstanceId(instanceId),
+                devopsEnvResourceMapper.listJobs(commandId),
                 DevopsEnvResourceE.class);
-    }
-
-    @Override
-    public DevopsEnvResourceE queryByInstanceIdAndKindAndName(Long instanceId, String kind, String name) {
-        DevopsEnvResourceDO devopsEnvResourceDO =
-                devopsEnvResourceMapper.queryByInstanceIdAndKindAndName(instanceId, kind, name);
-        return ConvertHelper.convert(devopsEnvResourceDO, DevopsEnvResourceE.class);
     }
 
     @Override
@@ -68,8 +61,11 @@ public class DevopsEnvResourceRepositoryImpl implements DevopsEnvResourceReposit
     }
 
     @Override
-    public void deleteByKindAndName(String kind, String name) {
+    public void deleteByEnvIdAndKindAndName(Long envId, String kind, String name) {
         DevopsEnvResourceDO devopsEnvResourceDO = new DevopsEnvResourceDO();
+        if (devopsEnvResourceMapper.queryResource(null, null, envId, kind, name) != null) {
+            devopsEnvResourceDO.setEnvId(envId);
+        }
         devopsEnvResourceDO.setKind(kind);
         devopsEnvResourceDO.setName(name);
         devopsEnvResourceMapper.delete(devopsEnvResourceDO);
@@ -93,6 +89,11 @@ public class DevopsEnvResourceRepositoryImpl implements DevopsEnvResourceReposit
         devopsEnvResourceDO.setName(name);
         devopsEnvResourceDO.setAppInstanceId(instanceId);
         devopsEnvResourceMapper.delete(devopsEnvResourceDO);
+    }
+
+    @Override
+    public DevopsEnvResourceE queryResource(Long instanceId, Long commandId, Long envId, String kind, String name) {
+        return ConvertHelper.convert(devopsEnvResourceMapper.queryResource(instanceId, commandId, envId, kind, name), DevopsEnvResourceE.class);
     }
 
 }

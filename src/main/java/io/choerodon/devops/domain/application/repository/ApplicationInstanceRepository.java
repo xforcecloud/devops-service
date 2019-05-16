@@ -27,7 +27,7 @@ public interface ApplicationInstanceRepository {
 
     List<ApplicationInstanceE> listByAppIdAndEnvId(Long projectId, Long appId, Long envId);
 
-    int checkOptions(Long envId, Long appId, Long appInstanceId);
+    int checkOptions(Long envId, Long appId, String appInstanceCode);
 
     String queryValueByEnvIdAndAppId(Long envId, Long appId);
 
@@ -57,4 +57,8 @@ public interface ApplicationInstanceRepository {
     List<ApplicationInstanceE> listByAppId(Long appId);
 
     void deleteAppInstanceByEnvId(Long envId);
+
+    void checkName(String instanceName);
+
+    String getInstanceDeploymentDetailJsonByInstanceId(Long instanceId, String deploymentName);
 }

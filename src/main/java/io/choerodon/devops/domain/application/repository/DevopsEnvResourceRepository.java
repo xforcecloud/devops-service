@@ -13,18 +13,18 @@ public interface DevopsEnvResourceRepository {
 
     List<DevopsEnvResourceE> listByInstanceId(Long instanceId);
 
-    List<DevopsEnvResourceE> listJobByInstanceId(Long instanceId);
-
-    DevopsEnvResourceE queryByInstanceIdAndKindAndName(Long instanceId, String kind, String name);
+    List<DevopsEnvResourceE> listJobs(Long commandId);
 
     void update(DevopsEnvResourceE devopsEnvResourceE);
 
-    void deleteByKindAndName(String kind, String name);
+    void deleteByEnvIdAndKindAndName(Long envId, String kind, String name);
 
     List<DevopsEnvResourceE> listByEnvAndType(Long envId, String type);
 
     DevopsEnvResourceE queryLatestJob(String kind, String name);
 
     void deleteByKindAndNameAndInstanceId(String kind, String name, Long instanceId);
+
+    DevopsEnvResourceE queryResource(Long instanceId, Long commandId, Long envId, String kind, String name);
 
 }

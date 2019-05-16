@@ -34,6 +34,9 @@ import io.choerodon.devops.infra.feign.GitlabServiceClient;
 @Component
 public class GitlabGroupServiceImpl implements GitlabGroupService {
 
+    private static final String GITLAB_GROUP_NAME_PATTERN_STRING = "[^\\u4E00-\\u9FA5a-zA-Z0-9_\\-.\\s]";
+    private static final String GROUP_NAME_FORMAT = "%s-%s%s";
+
     @Autowired
     private GitlabServiceClient gitlabServiceClient;
     @Autowired
@@ -53,12 +56,12 @@ public class GitlabGroupServiceImpl implements GitlabGroupService {
         //创建gitlab group
         GroupDO group = new GroupDO();
         // name: orgName-projectName
-        group.setName(String.format("%s-%s%s",
+        group.setName(String.format(GROUP_NAME_FORMAT,
                 gitlabGroupPayload.getOrganizationName(),
                 gitlabProjectName,
                 groupCodeSuffix));
         // path: orgCode-projectCode
-        group.setPath(String.format("%s-%s%s",
+        group.setPath(String.format(GROUP_NAME_FORMAT,
                 gitlabGroupPayload.getOrganizationCode(),
                 gitlabGroupPayload.getProjectCode(),
                 groupCodeSuffix));
@@ -85,12 +88,8 @@ public class GitlabGroupServiceImpl implements GitlabGroupService {
         ProjectE projectE = iamRepository.queryIamProject(gitlabGroupPayload.getProjectId());
         Organization organization = iamRepository.queryOrganizationById(projectE.getOrganization().getId());
         List<ProjectE> projectES = iamRepository.listIamProjectByOrgId(organization.getId(), gitlabGroupPayload.getProjectName(), null);
-        if (!projectES.isEmpty()) {
-            if (projectES.size() > 1) {
-                return gitlabGroupPayload.getProjectName() + "-" + (projectES.size() - 1);
-            }
-        }
-        return gitlabGroupPayload.getProjectName();
+        String validProjectName = getValidGroupName(gitlabGroupPayload.getProjectName());
+        return projectES.size() > 1 ? validProjectName + "-" + (projectES.size() - 1) : validProjectName;
     }
 
     @Override
@@ -100,12 +99,12 @@ public class GitlabGroupServiceImpl implements GitlabGroupService {
         //创建gitlab group
         GroupDO group = new GroupDO();
         // name: orgName-projectName
-        group.setName(String.format("%s-%s%s",
+        group.setName(String.format(GROUP_NAME_FORMAT,
                 gitlabGroupPayload.getOrganizationName(),
                 gitlabProjectName,
                 groupCodeSuffix));
         // path: orgCode-projectCode
-        group.setPath(String.format("%s-%s%s",
+        group.setPath(String.format(GROUP_NAME_FORMAT,
                 gitlabGroupPayload.getOrganizationCode(),
                 gitlabGroupPayload.getProjectCode(),
                 groupCodeSuffix));
@@ -125,5 +124,14 @@ public class GitlabGroupServiceImpl implements GitlabGroupService {
 
     }
 
-
+    /**
+     * process the original name to get a valid name.
+     * The invalid characters will be replaced by '_' (lower dash)
+     *
+     * @param groupName the original group name
+     * @return a valid name after processed
+     */
+    private String getValidGroupName(String groupName) {
+        return groupName == null ? null : groupName.replaceAll(GITLAB_GROUP_NAME_PATTERN_STRING, "_");
+    }
 }

@@ -1,17 +1,17 @@
 package io.choerodon.devops.app.service.impl;
 
-import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import io.choerodon.core.domain.Page;
 import io.choerodon.devops.api.dto.C7nCertificationDTO;
 import io.choerodon.devops.api.dto.CertificationDTO;
+import io.choerodon.devops.api.dto.OrgCertificationDTO;
 import io.choerodon.devops.api.validator.DevopsCertificationValidator;
 import io.choerodon.devops.app.service.CertificationService;
 import io.choerodon.devops.app.service.DevopsEnvironmentService;
@@ -20,9 +20,9 @@ import io.choerodon.devops.domain.application.entity.*;
 import io.choerodon.devops.domain.application.handler.ObjectOperation;
 import io.choerodon.devops.domain.application.repository.*;
 import io.choerodon.devops.domain.application.valueobject.C7nCertification;
+import io.choerodon.devops.domain.application.valueobject.Organization;
 import io.choerodon.devops.domain.application.valueobject.certification.*;
 import io.choerodon.devops.infra.common.util.EnvUtil;
-import io.choerodon.devops.infra.common.util.FileUtil;
 import io.choerodon.devops.infra.common.util.GitUserNameUtil;
 import io.choerodon.devops.infra.common.util.TypeUtil;
 import io.choerodon.devops.infra.common.util.enums.*;
@@ -40,7 +40,6 @@ import io.choerodon.websocket.helper.EnvListener;
 public class CertificationServiceImpl implements CertificationService {
 
     private static final String CERT_PREFIX = "cert-";
-    private static final String FILE_SEPARATOR = System.getProperty("file.separator");
 
     @Value("${cert.testCert}")
     private Boolean testCert;
@@ -74,7 +73,7 @@ public class CertificationServiceImpl implements CertificationService {
 
     @Override
     public void create(Long projectId, C7nCertificationDTO certificationDTO,
-                       MultipartFile key, MultipartFile cert, Boolean isGitOps) {
+                       Boolean isGitOps) {
 
         //校验用户是否有环境的权限
         devopsEnvUserPermissionRepository.checkEnvDeployPermission(TypeUtil.objToLong(GitUserNameUtil.getUserId()), certificationDTO.getEnvId());
@@ -84,6 +83,13 @@ public class CertificationServiceImpl implements CertificationService {
         List<String> domains = certificationDTO.getDomains();
 
         Long envId = certificationDTO.getEnvId();
+
+        CertificationFileDO certificationFileDO = null;
+        //如果创建的时候选择证书
+        if (certificationDTO.getCertId() != null) {
+            CertificationE certificationE = certificationRepository.queryById(certificationDTO.getCertId());
+            certificationFileDO = certificationRepository.getCertFile(certificationE.getId());
+        }
 
         //校验环境是否链接
         DevopsEnvironmentE devopsEnvironmentE = devopsEnvironmentRepository.queryById(envId);
@@ -95,18 +101,16 @@ public class CertificationServiceImpl implements CertificationService {
 
         // status operating
         CertificationE certificationE = new CertificationE(null,
-                certName, devopsEnvironmentE, domains, CertificationStatus.OPERATING.getStatus());
+                certName, devopsEnvironmentE, domains, CertificationStatus.OPERATING.getStatus(), certificationDTO.getCertId());
 
         C7nCertification c7nCertification = null;
 
         if (!isGitOps) {
             String envCode = devopsEnvironmentE.getCode();
-            String path = fileTmpPath(projectId, envCode);
 
             c7nCertification = getC7nCertification(
-                    certName, type, domains, getFileContent(path, key), getFileContent(path, cert), envCode);
-            removeFiles(path, key);
-            removeFiles(path, cert);
+                    certName, type, domains, certificationFileDO == null ? certificationDTO.getKeyValue() : certificationFileDO.getKeyFile(), certificationFileDO == null ? certificationDTO.getCertValue() : certificationFileDO.getCertFile(), envCode);
+
             // sent certification to agent
             ObjectOperation<C7nCertification> certificationOperation = new ObjectOperation<>();
             certificationOperation.setType(c7nCertification);
@@ -138,11 +142,6 @@ public class CertificationServiceImpl implements CertificationService {
 
     }
 
-    private void removeFiles(String path, MultipartFile multipartFile) {
-        if (multipartFile != null) {
-            new File(path + FILE_SEPARATOR + multipartFile.getOriginalFilename()).deleteOnExit();
-        }
-    }
 
     private void storeCertFile(C7nCertification c7nCertification, Long certId) {
         if (c7nCertification != null) {
@@ -155,15 +154,6 @@ public class CertificationServiceImpl implements CertificationService {
                 certificationRepository.updateCertFileId(certificationE);
             }
         }
-    }
-
-    private String fileTmpPath(Long projectId, String envCode) {
-        ProjectE projectE = iamRepository.queryIamProject(projectId);
-        return String.format("tmp%s%s%s%s", FILE_SEPARATOR, projectE.getCode(), FILE_SEPARATOR, envCode);
-    }
-
-    private String getFileContent(String path, MultipartFile file) {
-        return file == null ? null : FileUtil.getFileContent(new File(FileUtil.multipartFileToFile(path, file)));
     }
 
     @Override
@@ -223,20 +213,32 @@ public class CertificationServiceImpl implements CertificationService {
 
         if (devopsEnvFileResourceE == null) {
             certificationRepository.deleteById(certId);
+            if (gitlabRepository.getFile(TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()), "master",
+                    CERT_PREFIX + certificationE.getName() + ".yaml")) {
+                gitlabRepository.deleteFile(
+                        TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()),
+                        CERT_PREFIX + certificationE.getName() + ".yaml",
+                        "DELETE FILE",
+                        TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
+            }
+            return;
         }
         certificationE.setCommandId(createCertCommandE(CommandType.DELETE.getType(), certId, null));
         certificationRepository.updateCommandId(certificationE);
         certificationE.setStatus(CertificationStatus.DELETING.getStatus());
         certificationRepository.updateStatus(certificationE);
 
-        if (devopsEnvFileResourceE != null && devopsEnvFileResourceE.getFilePath() != null
+        if (devopsEnvFileResourceE.getFilePath() != null
                 && devopsEnvFileResourceRepository
                 .queryByEnvIdAndPath(certEnvId, devopsEnvFileResourceE.getFilePath()).size() == 1) {
-            gitlabRepository.deleteFile(
-                    gitLabEnvProjectId,
-                    devopsEnvFileResourceE.getFilePath(),
-                    "DELETE FILE " + certName,
-                    TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
+            if (gitlabRepository.getFile(TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()), "master",
+                    devopsEnvFileResourceE.getFilePath())) {
+                gitlabRepository.deleteFile(
+                        gitLabEnvProjectId,
+                        devopsEnvFileResourceE.getFilePath(),
+                        "DELETE FILE " + certName,
+                        TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
+            }
         } else {
             ObjectOperation<C7nCertification> certificationOperation = new ObjectOperation<>();
             C7nCertification c7nCertification = new C7nCertification();
@@ -249,6 +251,21 @@ public class CertificationServiceImpl implements CertificationService {
                     "delete", userAttrE.getGitlabUserId(), certId, certificateType, certEnvId,
                     devopsEnvironmentService.handDevopsEnvGitRepository(devopsEnvironmentE));
         }
+    }
+
+    @Override
+    public List<OrgCertificationDTO> listByProject(Long projectId) {
+        ProjectE projectE = iamRepository.queryIamProject(projectId);
+        Organization organization = iamRepository.queryOrganizationById(projectE.getOrganization().getId());
+        List<OrgCertificationDTO> orgCertificationDTOS = new ArrayList<>();
+        certificationRepository.listByProject(projectId, organization.getId()).forEach(certificationDTO -> {
+            OrgCertificationDTO orgCertificationDTO = new OrgCertificationDTO();
+            orgCertificationDTO.setName(certificationDTO.getCertName());
+            orgCertificationDTO.setId(certificationDTO.getId());
+            orgCertificationDTO.setDomain(certificationDTO.getDomains().get(0));
+            orgCertificationDTOS.add(orgCertificationDTO);
+        });
+        return orgCertificationDTOS;
     }
 
     @Override
@@ -274,7 +291,7 @@ public class CertificationServiceImpl implements CertificationService {
             params = "{}";
         }
 
-        return certificationRepository.page(projectId, envId, pageRequest, params);
+        return certificationRepository.page(projectId, null, envId, pageRequest, params);
     }
 
     @Override

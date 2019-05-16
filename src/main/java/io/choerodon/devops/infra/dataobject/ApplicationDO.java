@@ -10,7 +10,6 @@ import io.choerodon.mybatis.annotation.VersionAudit;
 import io.choerodon.mybatis.domain.AuditDomain;
 
 /**
- *
  * @author younger
  * @date 2018/3/28
  */
@@ -33,6 +32,8 @@ public class ApplicationDO extends AuditDomain {
     private String token;
     private Long hookId;
     private Boolean isFailed;
+    private String type;
+    private Boolean isSkipCheckPermission;
 
     @Transient
     private String publishLevel;
@@ -159,5 +160,21 @@ public class ApplicationDO extends AuditDomain {
 
     public void setFailed(Boolean failed) {
         isFailed = failed;
+    }
+
+    public Boolean getIsSkipCheckPermission() {
+        return isSkipCheckPermission;
+    }
+
+    public void setIsSkipCheckPermission(Boolean skipCheckPermission) {
+        isSkipCheckPermission = skipCheckPermission;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 }

@@ -86,8 +86,8 @@ public class ApplicationInstanceRepositoryImpl implements ApplicationInstanceRep
     }
 
     @Override
-    public int checkOptions(Long envId, Long appId, Long appInstanceId) {
-        return applicationInstanceMapper.checkOptions(envId, appId, appInstanceId);
+    public int checkOptions(Long envId, Long appId, String appInstanceCode) {
+        return applicationInstanceMapper.checkOptions(envId, appId, appInstanceCode);
     }
 
     @Override
@@ -182,5 +182,19 @@ public class ApplicationInstanceRepositoryImpl implements ApplicationInstanceRep
         ApplicationInstanceDO applicationInstanceDO = new ApplicationInstanceDO();
         applicationInstanceDO.setEnvId(envId);
         applicationInstanceMapper.delete(applicationInstanceDO);
+    }
+
+    @Override
+    public void checkName(String instanceName) {
+        ApplicationInstanceDO applicationInstanceDO = new ApplicationInstanceDO();
+        applicationInstanceDO.setCode(instanceName);
+        if (applicationInstanceMapper.selectOne(applicationInstanceDO) != null) {
+            throw new CommonException("error.app.instance.name.already.exist");
+        }
+    }
+
+    @Override
+    public String getInstanceDeploymentDetailJsonByInstanceId(Long instanceId, String deploymentName) {
+        return applicationInstanceMapper.getInstanceDeploymentDetailJsonByInstanceId(instanceId, deploymentName);
     }
 }

@@ -1,13 +1,16 @@
 package io.choerodon.devops.app.service.impl;
 
-import java.io.*;
-
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,7 +23,11 @@ import io.choerodon.core.convertor.ConvertPageHelper;
 import io.choerodon.core.domain.Page;
 import io.choerodon.core.exception.CommonException;
 import io.choerodon.devops.api.dto.*;
-import io.choerodon.devops.app.service.*;
+import io.choerodon.devops.api.validator.AppInstanceValidator;
+import io.choerodon.devops.app.service.ApplicationInstanceService;
+import io.choerodon.devops.app.service.DevopsEnvResourceService;
+import io.choerodon.devops.app.service.DevopsEnvironmentService;
+import io.choerodon.devops.app.service.GitlabGroupMemberService;
 import io.choerodon.devops.domain.application.entity.*;
 import io.choerodon.devops.domain.application.entity.iam.UserE;
 import io.choerodon.devops.domain.application.handler.ObjectOperation;
@@ -50,12 +57,13 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
 
     public static final String CREATE = "create";
     public static final String UPDATE = "update";
+    private static final String YAML_SUFFIX = ".yaml";
+    private static final String RELEASE_PREFIX = "release-";
+    private static final String FILE_SEPARATOR = "file.separator";
     private static final String C7NHELM_RELEASE = "C7NHelmRelease";
     private static final String RELEASE_NAME = "ReleaseName";
     private static Gson gson = new Gson();
 
-    @Autowired
-    DevopsEnvFileResourceRepository devopsEnvFileResourceRepository;
     @Value("${agent.version}")
     private String agentExpectVersion;
     @Value("${services.helm.url}")
@@ -65,50 +73,70 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
     @Value("${services.gitlab.sshUrl}")
     private String gitlabSshUrl;
 
-    @Autowired
+    private DevopsEnvFileResourceRepository devopsEnvFileResourceRepository;
     private ApplicationInstanceRepository applicationInstanceRepository;
-    @Autowired
     private ApplicationVersionRepository applicationVersionRepository;
-    @Autowired
     private ApplicationRepository applicationRepository;
-    @Autowired
     private DevopsEnvironmentRepository devopsEnvironmentRepository;
-    @Autowired
     private DeployService deployService;
-    @Autowired
-    private GitlabProjectRepository gitlabProjectRepository;
-    @Autowired
     private IamRepository iamRepository;
-    @Autowired
     private CommandSender commandSender;
-    @Autowired
     private DevopsEnvCommandRepository devopsEnvCommandRepository;
-    @Autowired
     private DevopsEnvCommandValueRepository devopsEnvCommandValueRepository;
-    @Autowired
     private EnvListener envListener;
-    @Autowired
     private EnvUtil envUtil;
-    @Autowired
     private UserAttrRepository userAttrRepository;
-    @Autowired
     private ApplicationInstanceMapper applicationInstanceMapper;
-    @Autowired
     private DevopsEnvPodRepository devopsEnvPodRepository;
-    @Autowired
     private DevopsEnvResourceService devopsEnvResourceService;
-    @Autowired
     private GitlabRepository gitlabRepository;
-    @Autowired
-    private DevopsEnvFileRepository devopsEnvFileRepository;
-    @Autowired
     private GitlabGroupMemberService gitlabGroupMemberService;
-    @Autowired
     private DevopsEnvironmentService devopsEnvironmentService;
-    @Autowired
-    private DeployMsgHandlerService deployMsgHandlerService;
-    @Autowired
     private DevopsEnvUserPermissionRepository devopsEnvUserPermissionRepository;
+
+    @Autowired
+    public ApplicationInstanceServiceImpl(
+            DevopsEnvFileResourceRepository devopsEnvFileResourceRepository,
+            ApplicationInstanceRepository applicationInstanceRepository,
+            EnvUtil envUtil,
+            ApplicationVersionRepository applicationVersionRepository,
+            ApplicationRepository applicationRepository,
+            DevopsEnvironmentRepository devopsEnvironmentRepository,
+            GitlabRepository gitlabRepository,
+            DevopsEnvUserPermissionRepository devopsEnvUserPermissionRepository,
+            UserAttrRepository userAttrRepository,
+            DevopsEnvironmentService devopsEnvironmentService,
+            DeployService deployService,
+            GitlabGroupMemberService gitlabGroupMemberService,
+            IamRepository iamRepository,
+            CommandSender commandSender,
+            DevopsEnvCommandRepository devopsEnvCommandRepository,
+            DevopsEnvCommandValueRepository devopsEnvCommandValueRepository,
+            DevopsEnvResourceService devopsEnvResourceService,
+            DevopsEnvPodRepository devopsEnvPodRepository,
+            ApplicationInstanceMapper applicationInstanceMapper,
+            EnvListener envListener) {
+        this.devopsEnvFileResourceRepository = devopsEnvFileResourceRepository;
+        this.applicationInstanceRepository = applicationInstanceRepository;
+        this.envUtil = envUtil;
+        this.applicationVersionRepository = applicationVersionRepository;
+        this.applicationRepository = applicationRepository;
+        this.devopsEnvironmentRepository = devopsEnvironmentRepository;
+        this.gitlabRepository = gitlabRepository;
+        this.devopsEnvUserPermissionRepository = devopsEnvUserPermissionRepository;
+        this.userAttrRepository = userAttrRepository;
+        this.devopsEnvironmentService = devopsEnvironmentService;
+        this.deployService = deployService;
+        this.gitlabGroupMemberService = gitlabGroupMemberService;
+        this.iamRepository = iamRepository;
+        this.commandSender = commandSender;
+        this.devopsEnvCommandRepository = devopsEnvCommandRepository;
+        this.devopsEnvCommandValueRepository = devopsEnvCommandValueRepository;
+        this.devopsEnvResourceService = devopsEnvResourceService;
+        this.devopsEnvPodRepository = devopsEnvPodRepository;
+        this.applicationInstanceMapper = applicationInstanceMapper;
+        this.envListener = envListener;
+    }
 
     @Override
     public Page<ApplicationInstanceDTO> listApplicationInstance(Long projectId, PageRequest pageRequest,
@@ -157,8 +185,7 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
                 .collect(Collectors.toList());
 
         ProjectE projectE = iamRepository.queryIamProject(projectId);
-        if (devopsEnvUserPermissionRepository
-                .isProjectOwner(TypeUtil.objToLong(GitUserNameUtil.getUserId()), projectE)) {
+        if (iamRepository.isProjectOwner(TypeUtil.objToLong(GitUserNameUtil.getUserId()), projectE)) {
             permissionEnvIds = devopsEnvironmentRepository.queryByProject(projectId).stream()
                     .map(DevopsEnvironmentE::getId).collect(Collectors.toList());
         }
@@ -388,6 +415,53 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         return getDeployDetailDTOS(deployDOS);
     }
 
+    @Override
+    public void deployTestApp(ApplicationDeployDTO applicationDeployDTO) {
+        String versionValue = applicationVersionRepository.queryValue(applicationDeployDTO.getAppVersionId());
+        ApplicationE applicationE = applicationRepository.query(applicationDeployDTO.getAppId());
+        ApplicationVersionE applicationVersionE = applicationVersionRepository.query(applicationDeployDTO.getAppVersionId());
+        FileUtil.checkYamlFormat(applicationDeployDTO.getValues());
+        String deployValue = getReplaceResult(versionValue,
+                applicationDeployDTO.getValues()).getDeltaYaml().trim();
+        deployService.deployTestApp(applicationE, applicationVersionE, applicationDeployDTO.getInstanceName(), applicationDeployDTO.getEnvironmentId(), deployValue);
+    }
+
+    @Override
+    public void getTestAppStatus(Map<Long, List<String>> testReleases) {
+        deployService.getTestAppStatus(testReleases);
+    }
+
+    @Override
+    public InstanceDeploymentDTO getDeploymentJsonDetailsByInstanceId(Long instanceId, String deploymentName) {
+        String message = applicationInstanceRepository.getInstanceDeploymentDetailJsonByInstanceId(instanceId, deploymentName);
+
+
+        if (StringUtils.isEmpty(message)) {
+            throw new CommonException("error.instance.deployment.not.found", instanceId);
+        }
+
+        try {
+            return new InstanceDeploymentDTO(instanceId, new ObjectMapper().readTree(message));
+        } catch (IOException e) {
+            throw new CommonException("error.instance.deployment.json.read.failed", instanceId, message);
+        }
+    }
+
+    @Override
+    public InstanceDeploymentDTO getDeploymentYamlDetailsByInstanceId(Long instanceId, String deploymentName) {
+        String message = applicationInstanceRepository.getInstanceDeploymentDetailJsonByInstanceId(instanceId, deploymentName);
+
+        if (StringUtils.isEmpty(message)) {
+            throw new CommonException("error.instance.deployment.not.found", instanceId);
+        }
+
+        try {
+            return new InstanceDeploymentDTO(instanceId, JsonYamlConversionUtil.json2yaml(message));
+        } catch (IOException e) {
+            throw new CommonException(JsonYamlConversionUtil.ERROR_JSON_TO_YAML_FAILED, message);
+        }
+    }
+
     private Page<DeployDetailDTO> getDeployDetailDTOS(Page<DeployDO> deployDOS) {
         Page<DeployDetailDTO> pageDeployDetailDTOS = new Page<>();
         List<DeployDetailDTO> deployDetailDTOS = new ArrayList<>();
@@ -413,8 +487,14 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         DevopsEnvCommandE devopsEnvCommandE = devopsEnvCommandRepository.query(applicationInstanceE.getCommandId());
         String yaml = FileUtil.checkValueFormat(applicationInstanceRepository.queryValueByInstanceId(
                 instanceId));
-        String versionValue = applicationVersionRepository
-                .queryValue(devopsEnvCommandE.getObjectVersionId());
+        String versionValue;
+        //实例表新增commndId之前的实例查values用实例的版本
+        if (devopsEnvCommandE == null) {
+            versionValue = applicationVersionRepository.queryValue(applicationInstanceE.getApplicationVersionE().getId());
+        } else {
+            versionValue = applicationVersionRepository
+                    .queryValue(devopsEnvCommandE.getObjectVersionId());
+        }
         return getReplaceResult(versionValue, yaml);
     }
 
@@ -423,20 +503,20 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         try {
             FileUtil.checkYamlFormat(replaceResult.getYaml());
 
-            String fileName = GenerateUUID.generateUUID() + ".yaml";
+            String fileName = GenerateUUID.generateUUID() + YAML_SUFFIX;
             String path = "deployfile";
             FileUtil.saveDataToFile(path, fileName, replaceResult.getYaml());
             //读入文件
-            File file = new File(path + System.getProperty("file.separator") + fileName);
+            File file = new File(path + System.getProperty(FILE_SEPARATOR) + fileName);
             InputStreamResource inputStreamResource = new InputStreamResource(new FileInputStream(file));
             YamlPropertySourceLoader yamlPropertySourceLoader = new YamlPropertySourceLoader();
             try {
                 yamlPropertySourceLoader.load("test", inputStreamResource, null);
-            }catch (Exception e) {
-                FileUtil.deleteFile(path + System.getProperty("file.separator") + fileName);
+            } catch (Exception e) {
+                FileUtil.deleteFile(path + System.getProperty(FILE_SEPARATOR) + fileName);
                 return getErrorLine(e.getMessage());
             }
-            FileUtil.deleteFile(path + System.getProperty("file.separator") + fileName);
+            FileUtil.deleteFile(path + System.getProperty(FILE_SEPARATOR) + fileName);
         } catch (Exception e) {
             return getErrorLine(e.getMessage());
         }
@@ -530,17 +610,36 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
 
         ApplicationE applicationE = applicationRepository.query(applicationDeployDTO.getAppId());
         ApplicationVersionE applicationVersionE =
-                applicationVersionRepository.query(applicationDeployDTO.getAppVerisonId());
+                applicationVersionRepository.query(applicationDeployDTO.getAppVersionId());
 
         //初始化ApplicationInstanceE,DevopsEnvCommandE,DevopsEnvCommandValueE
         ApplicationInstanceE applicationInstanceE = initApplicationInstanceE(applicationDeployDTO);
         DevopsEnvCommandE devopsEnvCommandE = initDevopsEnvCommandE(applicationDeployDTO);
         DevopsEnvCommandValueE devopsEnvCommandValueE = initDevopsEnvCommandValueE(applicationDeployDTO);
 
-        //初始化实例名
+        //校验更新实例时values是否删除key
+        if (!applicationDeployDTO.getIsNotChange() && applicationDeployDTO.getType().equals(UPDATE)) {
+            ApplicationInstanceE oldapplicationInstanceE = applicationInstanceRepository.selectById(applicationDeployDTO.getAppInstanceId());
+            DevopsEnvCommandE olddevopsEnvCommandE = devopsEnvCommandRepository.query(oldapplicationInstanceE.getCommandId());
+            if (applicationDeployDTO.getAppVersionId().equals(olddevopsEnvCommandE.getObjectVersionId())) {
+                String oldDeployValue = applicationInstanceRepository.queryValueByInstanceId(
+                        applicationDeployDTO.getAppInstanceId());
+                String newDeployValue = devopsEnvCommandValueE.getValue();
+                if (oldDeployValue.equals(newDeployValue)) {
+                    throw new CommonException("error.values.key.delete");
+                }
+            }
+        }
+
+        // 初始化自定义实例名
         String code;
         if (applicationDeployDTO.getType().equals(CREATE)) {
-            code = String.format("%s-%s", applicationE.getCode(), GenerateUUID.generateUUID().substring(0, 5));
+            if (applicationDeployDTO.getInstanceName() == null || applicationDeployDTO.getInstanceName().trim().equals("")) {
+                code = String.format("%s-%s", applicationE.getCode(), GenerateUUID.generateUUID().substring(0, 5));
+            } else {
+                code = applicationDeployDTO.getInstanceName();
+
+            }
         } else {
             code = applicationInstanceE.getCode();
         }
@@ -559,10 +658,12 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         //更新时候，如果isNotChange的值为true，则直接向agent发送更新指令，不走gitops,否则走操作gitops库文件逻辑
         if (applicationDeployDTO.getIsNotChange()) {
             applicationInstanceRepository.update(applicationInstanceE);
-            devopsEnvCommandE.setObjectId(applicationInstanceE.getId());
-            devopsEnvCommandE.initDevopsEnvCommandValueE(
-                    devopsEnvCommandValueRepository.create(devopsEnvCommandValueE).getId());
-            deployService.deploy(applicationE, applicationVersionE, applicationInstanceE, devopsEnvironmentE,
+            applicationInstanceE = applicationInstanceRepository.selectById(applicationDeployDTO.getAppInstanceId());
+            devopsEnvCommandE = devopsEnvCommandRepository.query(applicationInstanceE.getCommandId());
+            devopsEnvCommandE.setId(null);
+            devopsEnvCommandE.setCommandType(CommandType.UPDATE.getType());
+            devopsEnvCommandE.setStatus(CommandStatus.OPERATING.getStatus());
+            deployService.deploy(applicationE, applicationVersionE, applicationInstanceE.getCode(), devopsEnvironmentE,
                     devopsEnvCommandValueE.getValue(), devopsEnvCommandRepository.create(devopsEnvCommandE).getId());
         } else {
             //判断当前容器目录下是否存在环境对应的gitops文件目录，不存在则克隆
@@ -574,7 +675,7 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
                     code, applicationVersionE, applicationDeployDTO, applicationE));
             Integer projectId = TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId());
             objectOperation.operationEnvGitlabFile(
-                    "release-" + code,
+                    RELEASE_PREFIX + code,
                     projectId,
                     applicationDeployDTO.getType(),
                     userAttrE.getGitlabUserId(),
@@ -595,7 +696,9 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
                         devopsEnvCommandValueRepository.create(devopsEnvCommandValueE).getId());
                 applicationInstanceE.setCommandId(devopsEnvCommandRepository.create(devopsEnvCommandE).getId());
                 applicationInstanceRepository.update(applicationInstanceE);
-            } else if (beforeDevopsEnvCommandE.getId().equals(afterDevopsEnvCommandE.getId())) {
+            }
+            //判断null 是 0.9.0-0.10.0新增commandId 避免出现npe异常
+            if (applicationDeployDTO.getType().equals(UPDATE) && ((beforeDevopsEnvCommandE == null && afterDevopsEnvCommandE == null) || ((beforeDevopsEnvCommandE != null && afterDevopsEnvCommandE != null) && (Objects.equals(beforeDevopsEnvCommandE.getId(), afterDevopsEnvCommandE.getId()))))) {
                 devopsEnvCommandE.setObjectId(applicationInstanceE.getId());
                 devopsEnvCommandE.initDevopsEnvCommandValueE(
                         devopsEnvCommandValueRepository.create(devopsEnvCommandValueE).getId());
@@ -664,7 +767,7 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
                 devopsEnvCommandE.setCommandType(CommandType.DELETE.getType());
                 break;
         }
-        devopsEnvCommandE.setObjectVersionId(applicationDeployDTO.getAppVerisonId());
+        devopsEnvCommandE.setObjectVersionId(applicationDeployDTO.getAppVersionId());
         devopsEnvCommandE.setObject(ObjectType.INSTANCE.getType());
         devopsEnvCommandE.setStatus(CommandStatus.OPERATING.getStatus());
         return devopsEnvCommandE;
@@ -673,7 +776,7 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
     private DevopsEnvCommandValueE initDevopsEnvCommandValueE(ApplicationDeployDTO applicationDeployDTO) {
         DevopsEnvCommandValueE devopsEnvCommandValueE = new DevopsEnvCommandValueE();
         devopsEnvCommandValueE.setValue(
-                getReplaceResult(applicationVersionRepository.queryValue(applicationDeployDTO.getAppVerisonId()),
+                getReplaceResult(applicationVersionRepository.queryValue(applicationDeployDTO.getAppVersionId()),
                         applicationDeployDTO.getValues()).getDeltaYaml().trim());
         return devopsEnvCommandValueE;
     }
@@ -765,11 +868,12 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         String value = applicationInstanceRepository.queryValueByInstanceId(instanceId);
         instanceE.setStatus(InstanceStatus.OPERATIING.getStatus());
         devopsEnvCommandE.setId(null);
+        devopsEnvCommandE.setCommandType(CommandType.UPDATE.getType());
         devopsEnvCommandE.setStatus(CommandStatus.OPERATING.getStatus());
         Long commandId = devopsEnvCommandRepository.create(devopsEnvCommandE).getId();
         instanceE.setCommandId(commandId);
         applicationInstanceRepository.update(instanceE);
-        deployService.deploy(applicationE, applicationVersionE, instanceE, devopsEnvironmentE, value, commandId);
+        deployService.deploy(applicationE, applicationVersionE, instanceE.getCode(), devopsEnvironmentE, value, commandId);
     }
 
     @Override
@@ -814,16 +918,27 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
                 .queryByEnvIdAndResource(devopsEnvironmentE.getId(), instanceId, C7NHELM_RELEASE);
         if (devopsEnvFileResourceE == null) {
             applicationInstanceRepository.deleteById(instanceId);
+            if (gitlabRepository.getFile(TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()), "master",
+                    RELEASE_PREFIX + instanceE.getCode() + YAML_SUFFIX)) {
+                gitlabRepository.deleteFile(
+                        TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()),
+                        RELEASE_PREFIX + instanceE.getCode() + YAML_SUFFIX,
+                        "DELETE FILE",
+                        TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
+            }
             return;
         }
         List<DevopsEnvFileResourceE> devopsEnvFileResourceES = devopsEnvFileResourceRepository
                 .queryByEnvIdAndPath(devopsEnvironmentE.getId(), devopsEnvFileResourceE.getFilePath());
         if (devopsEnvFileResourceES.size() == 1) {
-            gitlabRepository.deleteFile(
-                    TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()),
-                    devopsEnvFileResourceE.getFilePath(),
-                    "DELETE FILE",
-                    TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
+            if (gitlabRepository.getFile(TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()), "master",
+                    devopsEnvFileResourceE.getFilePath())) {
+                gitlabRepository.deleteFile(
+                        TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()),
+                        devopsEnvFileResourceE.getFilePath(),
+                        "DELETE FILE",
+                        TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
+            }
         } else {
             ObjectOperation<C7nHelmRelease> objectOperation = new ObjectOperation<>();
             C7nHelmRelease c7nHelmRelease = new C7nHelmRelease();
@@ -833,7 +948,7 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
             objectOperation.setType(c7nHelmRelease);
             Integer projectId = TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId());
             objectOperation.operationEnvGitlabFile(
-                    "release-" + instanceE.getCode(),
+                    RELEASE_PREFIX + instanceE.getCode(),
                     projectId,
                     "delete",
                     userAttrE.getGitlabUserId(),
@@ -865,6 +980,14 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         applicationInstanceRepository.deleteById(instanceId);
     }
 
+    @Override
+    public void checkName(String instanceName) {
+        AppInstanceValidator.checkName(instanceName);
+        ApplicationInstanceE applicationInstanceE = new ApplicationInstanceE();
+        applicationInstanceE.setCode(instanceName);
+        applicationInstanceRepository.checkName(instanceName);
+    }
+
     private String getNameSpace(Long envId) {
         return devopsEnvironmentRepository.queryById(envId).getCode();
     }
@@ -876,7 +999,8 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         return instanceE.getCode();
     }
 
-    private void sentInstance(String payload, String name, String type, String namespace, Long commandId, Long envId, Long clusterId) {
+    private void sentInstance(String payload, String name, String type, String namespace, Long commandId, Long envId,
+                              Long clusterId) {
         Msg msg = new Msg();
         msg.setKey("cluster:" + clusterId + ".env:" + namespace + ".envId:" + envId + ".release:" + name);
         msg.setType(type);
@@ -919,39 +1043,37 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
                         })));
     }
 
-    private C7nHelmRelease getC7NHelmRelease(String code,
-                                             ApplicationVersionE applicationVersionE,
-                                             ApplicationDeployDTO applicationDeployDTO,
-                                             ApplicationE applicationE
-    ) {
+    private C7nHelmRelease getC7NHelmRelease(String code, ApplicationVersionE applicationVersionE,
+                                             ApplicationDeployDTO applicationDeployDTO, ApplicationE applicationE) {
         C7nHelmRelease c7nHelmRelease = new C7nHelmRelease();
         c7nHelmRelease.getMetadata().setName(code);
         c7nHelmRelease.getSpec().setRepoUrl(helmUrl + applicationVersionE.getRepository());
         c7nHelmRelease.getSpec().setChartName(applicationE.getCode());
         c7nHelmRelease.getSpec().setChartVersion(applicationVersionE.getVersion());
         c7nHelmRelease.getSpec().setValues(
-                getReplaceResult(applicationVersionRepository.queryValue(applicationDeployDTO.getAppVerisonId()),
+                getReplaceResult(applicationVersionRepository.queryValue(applicationDeployDTO.getAppVersionId()),
                         applicationDeployDTO.getValues()).getDeltaYaml().trim());
         return c7nHelmRelease;
-
     }
 
     @Override
     public ReplaceResult getReplaceResult(String versionValue, String deployValue) {
-        if (versionValue.equals(deployValue)) {
+        if (versionValue.equals(deployValue) || deployValue.equals("")) {
             ReplaceResult replaceResult = new ReplaceResult();
+            replaceResult.setYaml(versionValue);
             replaceResult.setDeltaYaml("");
+            replaceResult.setYaml(versionValue);
             replaceResult.setHighlightMarkers(new ArrayList<>());
             replaceResult.setNewLines(new ArrayList<>());
             return replaceResult;
         }
 
-        String fileName = GenerateUUID.generateUUID() + ".yaml";
+        String fileName = GenerateUUID.generateUUID() + YAML_SUFFIX;
         String path = "deployfile";
-        FileUtil.saveDataToFile(path, fileName, versionValue + "\n" + "---" + "\n" + deployValue);
+        FileUtil.saveDataToFile(path, fileName, versionValue + "\n" + "---" + "\n" + deployValue.replace("\"", ""));
         ReplaceResult replaceResult;
         try {
-            replaceResult = FileUtil.replaceNew(path + System.getProperty("file.separator") + fileName);
+            replaceResult = FileUtil.replaceNew(path + System.getProperty(FILE_SEPARATOR) + fileName);
         } catch (Exception e) {
             throw new CommonException(e.getMessage(), e);
         }
@@ -959,7 +1081,7 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
             replaceResult.setHighlightMarkers(new ArrayList<>());
         }
         replaceResult.setTotalLine(FileUtil.getFileTotalLine(replaceResult.getYaml()));
-        FileUtil.deleteFile(path + System.getProperty("file.separator") + fileName);
+        FileUtil.deleteFile(path + System.getProperty(FILE_SEPARATOR) + fileName);
         return replaceResult;
     }
 
@@ -968,4 +1090,6 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         DecimalFormat df = new DecimalFormat("0.00");
         return df.format(num);
     }
+
+
 }

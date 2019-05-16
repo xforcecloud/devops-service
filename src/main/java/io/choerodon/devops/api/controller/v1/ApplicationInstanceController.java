@@ -30,6 +30,7 @@ import io.choerodon.swagger.annotation.Permission;
 @RestController
 @RequestMapping(value = "/v1/projects/{project_id}/app_instances")
 public class ApplicationInstanceController {
+    private static final String ERROR_APPINSTANCE_QUERY = "error.appInstance.query";
 
     @Autowired
     private ApplicationInstanceService applicationInstanceService;
@@ -116,6 +117,48 @@ public class ApplicationInstanceController {
     }
 
     /**
+     * 根据实例id获取更多部署详情(Json格式)
+     *
+     * @param projectId     项目id
+     * @param appInstanceId 实例id
+     * @return 部署详情
+     */
+    @Permission(level = ResourceLevel.PROJECT,
+            roles = {InitRoleCode.PROJECT_OWNER, InitRoleCode.PROJECT_MEMBER})
+    @ApiOperation(value = "根据实例id获取更多部署详情(Json格式)")
+    @GetMapping(value = "/{appInstanceId}/deployment_detail_json")
+    public ResponseEntity<InstanceDeploymentDTO> getDeploymentDetailsJsonByInstanceId(
+            @ApiParam(value = "项目ID", required = true)
+            @PathVariable(value = "project_id") Long projectId,
+            @ApiParam(value = "部署名称", required = true)
+            @RequestParam(value = "deployment_name") String deploymentName,
+            @ApiParam(value = "部署ID", required = true)
+            @PathVariable Long appInstanceId) {
+        return new ResponseEntity<>(applicationInstanceService.getDeploymentJsonDetailsByInstanceId(appInstanceId, deploymentName), HttpStatus.OK);
+    }
+
+    /**
+     * 根据实例id获取更多部署详情(Yaml格式)
+     *
+     * @param projectId     项目id
+     * @param appInstanceId 实例id
+     * @return 部署详情
+     */
+    @Permission(level = ResourceLevel.PROJECT,
+            roles = {InitRoleCode.PROJECT_OWNER, InitRoleCode.PROJECT_MEMBER})
+    @ApiOperation(value = "根据实例id获取更多部署详情(Yaml格式)")
+    @GetMapping(value = "/{appInstanceId}/deployment_detail_yaml")
+    public ResponseEntity<InstanceDeploymentDTO> getDeploymentDetailsYamlByInstanceId(
+            @ApiParam(value = "项目ID", required = true)
+            @PathVariable(value = "project_id") Long projectId,
+            @ApiParam(value = "部署名称", required = true)
+            @RequestParam(value = "deployment_name") String deploymentName,
+            @ApiParam(value = "部署ID", required = true)
+            @PathVariable Long appInstanceId) {
+        return new ResponseEntity<>(applicationInstanceService.getDeploymentYamlDetailsByInstanceId(appInstanceId, deploymentName), HttpStatus.OK);
+    }
+
+    /**
      * 获取升级 Value
      *
      * @param projectId     项目id
@@ -168,8 +211,6 @@ public class ApplicationInstanceController {
     }
 
     /**
-     * 预览values
-     *
      * @param projectId     项目id
      * @param replaceResult 部署value
      * @return ReplaceResult
@@ -254,7 +295,7 @@ public class ApplicationInstanceController {
             @RequestParam(required = false) Long appVersionId) {
         return Optional.ofNullable(applicationInstanceService.listByOptions(projectId, appId, appVersionId, envId))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
-                .orElseThrow(() -> new CommonException("error.appInstance.query"));
+                .orElseThrow(() -> new CommonException(ERROR_APPINSTANCE_QUERY));
     }
 
     /**
@@ -278,7 +319,7 @@ public class ApplicationInstanceController {
             @RequestParam Long appId) {
         return Optional.ofNullable(applicationInstanceService.listByAppIdAndEnvId(projectId, appId, envId))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
-                .orElseThrow(() -> new CommonException("error.appInstance.query"));
+                .orElseThrow(() -> new CommonException(ERROR_APPINSTANCE_QUERY));
     }
 
 
@@ -303,25 +344,26 @@ public class ApplicationInstanceController {
                 .orElseThrow(() -> new CommonException("error.resource.query"));
     }
 
+
     /**
-     * 获取部署实例hook阶段
+     * 获取部署实例Event事件
      *
      * @param projectId     项目id
      * @param appInstanceId 实例id
-     * @return list
+     * @return List
      */
     @Permission(level = ResourceLevel.PROJECT,
             roles = {InitRoleCode.PROJECT_OWNER, InitRoleCode.PROJECT_MEMBER})
-    @ApiOperation(value = "获取部署实例hook阶段")
-    @GetMapping("/{appInstanceId}/stages")
-    public ResponseEntity<List<InstanceStageDTO>> listStages(
-            @ApiParam(value = "项目 ID", required = true)
+    @ApiOperation(value = "获取部署实例Event事件")
+    @GetMapping("/{app_instanceId}/events")
+    public ResponseEntity<List<InstanceEventDTO>> listEvents(
+            @ApiParam(value = "项目ID", required = true)
             @PathVariable(value = "project_id") Long projectId,
             @ApiParam(value = "实例ID", required = true)
-            @PathVariable Long appInstanceId) {
-        return Optional.ofNullable(devopsEnvResourceService.listStages(appInstanceId))
+            @PathVariable(value = "app_instanceId") Long appInstanceId) {
+        return Optional.ofNullable(devopsEnvResourceService.listInstancePodEvent(appInstanceId))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
-                .orElseThrow(() -> new CommonException("error.stage.query"));
+                .orElseThrow(() -> new CommonException("error.event.query"));
     }
 
     /**
@@ -404,6 +446,23 @@ public class ApplicationInstanceController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
+    /**
+     * 校验实例名唯一性
+     *
+     * @param projectId    项目id
+     * @param instanceName 实例名
+     */
+    @Permission(level = ResourceLevel.PROJECT, roles = {InitRoleCode.PROJECT_OWNER,
+            InitRoleCode.PROJECT_MEMBER})
+    @ApiOperation(value = "校验实例名唯一性")
+    @GetMapping(value = "/check_name")
+    public void checkName(
+            @ApiParam(value = "项目 ID", required = true)
+            @PathVariable(value = "project_id") Long projectId,
+            @ApiParam(value = "实例ID", required = true)
+            @RequestParam(value = "instance_name") String instanceName) {
+        applicationInstanceService.checkName(instanceName);
+    }
 
     /**
      * 环境总览实例查询
@@ -427,7 +486,7 @@ public class ApplicationInstanceController {
             @RequestBody(required = false) String params) {
         return Optional.ofNullable(applicationInstanceService.listByEnv(projectId, envId, params))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
-                .orElseThrow(() -> new CommonException("error.appInstance.query"));
+                .orElseThrow(() -> new CommonException(ERROR_APPINSTANCE_QUERY));
     }
 
     /**
@@ -561,4 +620,25 @@ public class ApplicationInstanceController {
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.deploy.time.get"));
     }
+
+    /**
+     * 部署自动化测试应用
+     *
+     * @param projectId            项目id
+     * @param applicationDeployDTO 部署信息
+     * @return ApplicationInstanceDTO
+     */
+    @ApiOperation(value = "部署自动化测试应用")
+    @Permission(level = ResourceLevel.PROJECT,
+            roles = {InitRoleCode.PROJECT_OWNER,
+                    InitRoleCode.PROJECT_MEMBER})
+    @PostMapping("/deploy_test_app")
+    public void deployTestApp(
+            @ApiParam(value = "项目ID", required = true)
+            @PathVariable(value = "project_id") Long projectId,
+            @ApiParam(value = "部署信息", required = true)
+            @RequestBody ApplicationDeployDTO applicationDeployDTO) {
+        applicationInstanceService.deployTestApp(applicationDeployDTO);
+    }
+
 }

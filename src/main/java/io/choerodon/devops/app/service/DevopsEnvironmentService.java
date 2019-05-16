@@ -140,11 +140,10 @@ public interface DevopsEnvironmentService {
     /**
      * 环境下为用户分配权限
      *
-     * @param projectId 项目id
      * @param envId     环境id
      * @param userIds   有权限的用户ids
      */
-    Boolean updateEnvUserPermission(Long projectId, Long envId, List<Long> userIds);
+    Boolean updateEnvUserPermission(Long envId, List<Long> userIds);
 
     /**
      * 删除已停用的环境
@@ -160,6 +159,13 @@ public interface DevopsEnvironmentService {
      * @return List
      */
     List<DevopsClusterRepDTO> listDevopsCluster(Long projectId);
+
+    /**
+     * 设置环境状态为错误
+     * @param data 数据
+     * @param projectId 可为空
+     */
+    void setEnvErrStatus(String data, Long projectId);
 
     void initMockService(SagaClient sagaClient);
 

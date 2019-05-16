@@ -1,9 +1,6 @@
 package io.choerodon.devops.app.service.impl;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import io.kubernetes.client.custom.IntOrString;
 import io.kubernetes.client.models.*;
@@ -29,7 +26,6 @@ import io.choerodon.devops.infra.common.util.TypeUtil;
 import io.choerodon.devops.infra.common.util.enums.*;
 import io.choerodon.devops.infra.dataobject.DevopsIngressDO;
 import io.choerodon.devops.infra.dataobject.DevopsIngressPathDO;
-import io.choerodon.devops.infra.mapper.DevopsIngressPathMapper;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
 import io.choerodon.websocket.helper.EnvListener;
 
@@ -90,6 +86,15 @@ public class DevopsIngressServiceImpl implements DevopsIngressService {
         DevopsEnvironmentE devopsEnvironmentE = devopsEnvironmentRepository.queryById(devopsIngressDTO.getEnvId());
         //校验环境是否连接
         envUtil.checkEnvConnection(devopsEnvironmentE.getClusterE().getId(), envListener);
+
+        //校验port是否属于该网络
+        devopsIngressDTO.getPathList().forEach(devopsIngressPathDTO -> {
+            DevopsServiceE devopsServiceE = devopsServiceRepository.query(devopsIngressPathDTO.getServiceId());
+            if (devopsServiceE.getPorts().stream()
+                    .map(PortMapE::getPort).noneMatch(port -> port.equals(devopsIngressPathDTO.getServicePort()))) {
+                throw new CommonException(ERROR_SERVICE_NOT_CONTAIN_PORT);
+            }
+        });
 
         //初始化V1beta1Ingress对象
         String certName = getCertName(devopsIngressDTO.getCertId());
@@ -154,6 +159,15 @@ public class DevopsIngressServiceImpl implements DevopsIngressService {
         DevopsEnvironmentE devopsEnvironmentE = devopsEnvironmentRepository.queryById(devopsIngressDTO.getEnvId());
         //校验环境是否连接
         envUtil.checkEnvConnection(devopsEnvironmentE.getClusterE().getId(), envListener);
+
+        //校验port是否属于该网络
+        devopsIngressDTO.getPathList().forEach(devopsIngressPathDTO -> {
+            DevopsServiceE devopsServiceE = devopsServiceRepository.query(devopsIngressPathDTO.getServiceId());
+            if (devopsServiceE.getPorts().stream()
+                    .map(PortMapE::getPort).noneMatch(port -> port.equals(devopsIngressPathDTO.getServicePort()))) {
+                throw new CommonException(ERROR_SERVICE_NOT_CONTAIN_PORT);
+            }
+        });
 
         //判断ingress有没有修改，没有修改直接返回
         DevopsIngressDTO ingressDTO = devopsIngressRepository.getIngress(projectId, id);
@@ -274,6 +288,14 @@ public class DevopsIngressServiceImpl implements DevopsIngressService {
         if (devopsEnvFileResourceE == null) {
             devopsIngressRepository.deleteIngress(ingressId);
             devopsIngressRepository.deleteIngressPath(ingressId);
+            if (gitlabRepository.getFile(TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()), "master",
+                    "ing-" + ingressDO.getName() + ".yaml")) {
+                gitlabRepository.deleteFile(
+                        TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()),
+                        "ing-" + ingressDO.getName() + ".yaml",
+                        "DELETE FILE",
+                        TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
+            }
             return;
 
         }
@@ -281,11 +303,14 @@ public class DevopsIngressServiceImpl implements DevopsIngressService {
 
         //如果对象所在文件只有一个对象，则直接删除文件,否则把对象从文件中去掉，更新文件
         if (devopsEnvFileResourceES.size() == 1) {
-            gitlabRepository.deleteFile(
-                    TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()),
-                    devopsEnvFileResourceE.getFilePath(),
-                    "DELETE FILE",
-                    TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
+            if (gitlabRepository.getFile(TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()), "master",
+                    devopsEnvFileResourceE.getFilePath())) {
+                gitlabRepository.deleteFile(
+                        TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId()),
+                        devopsEnvFileResourceE.getFilePath(),
+                        "DELETE FILE",
+                        TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
+            }
         } else {
             ObjectOperation<V1beta1Ingress> objectOperation = new ObjectOperation<>();
             V1beta1Ingress v1beta1Ingress = new V1beta1Ingress();
@@ -332,23 +357,13 @@ public class DevopsIngressServiceImpl implements DevopsIngressService {
     }
 
     @Override
-    public V1beta1HTTPIngressPath createPath(String hostPath, Long serviceId, Long port) {
-        DevopsServiceE devopsServiceE = devopsServiceRepository.query(serviceId);
+    public V1beta1HTTPIngressPath createPath(String hostPath, String serviceName, Long port) {
         V1beta1HTTPIngressPath path = new V1beta1HTTPIngressPath();
         V1beta1IngressBackend backend = new V1beta1IngressBackend();
-        backend.setServiceName(devopsServiceE.getName().toLowerCase());
-        int servicePort;
-        if (port == null) {
-            servicePort = devopsServiceE.getPorts().get(0).getPort().intValue();
-        } else {
-            if (devopsServiceE.getPorts().stream()
-                    .map(PortMapE::getPort).anyMatch(t -> t.equals(port))) {
-                servicePort = port.intValue();
-            } else {
-                throw new CommonException(ERROR_SERVICE_NOT_CONTAIN_PORT);
-            }
+        backend.setServiceName(serviceName.toLowerCase());
+        if (port != null) {
+            backend.setServicePort(new IntOrString(port.intValue()));
         }
-        backend.setServicePort(new IntOrString(servicePort));
         path.setBackend(backend);
         path.setPath(hostPath);
         return path;
@@ -393,17 +408,6 @@ public class DevopsIngressServiceImpl implements DevopsIngressService {
         return ingress;
     }
 
-    /**
-     * 获取服务
-     */
-    private DevopsServiceE getDevopsService(Long id) {
-        DevopsServiceE devopsServiceE = devopsServiceRepository.query(id);
-        if (devopsServiceE == null) {
-            throw new CommonException("error.service.select");
-        }
-        return devopsServiceE;
-    }
-
     private void operateEnvGitLabFile(Integer envGitLabProjectId,
                                       V1beta1Ingress ingress,
                                       Boolean isCreate,
@@ -437,7 +441,9 @@ public class DevopsIngressServiceImpl implements DevopsIngressService {
             devopsIngressDO.setId(ingressId);
             devopsIngressDO.setCommandId(devopsEnvCommandRepository.create(devopsEnvCommandE).getId());
             devopsIngressRepository.updateIngress(devopsIngressDO);
-        } else if (beforeDevopsEnvCommandE.getId().equals(afterDevopsEnvCommandE.getId())) {
+        }
+        //判断null 是 0.9.0-0.10.0新增commandId 避免出现npe异常
+        if (!isCreate && ((beforeDevopsEnvCommandE == null && afterDevopsEnvCommandE == null) || ((beforeDevopsEnvCommandE != null && afterDevopsEnvCommandE != null) && (Objects.equals(beforeDevopsEnvCommandE.getId(), afterDevopsEnvCommandE.getId()))))) {
             devopsEnvCommandE.setObjectId(devopsIngressDO.getId());
             devopsIngressDO.setCommandId(devopsEnvCommandRepository.create(devopsEnvCommandE).getId());
             devopsIngressRepository.updateIngressAndIngressPath(devopsIngressDO);
@@ -483,7 +489,7 @@ public class DevopsIngressServiceImpl implements DevopsIngressService {
             String hostPath = t.getPath();
             String rewritePath = t.getRewritePath();
 
-            if (hostPath == null || serviceId == null) {
+            if (hostPath == null) {
                 throw new CommonException(PATH_ERROR);
             }
             DevopsIngressValidator.checkPath(hostPath);
@@ -492,19 +498,13 @@ public class DevopsIngressServiceImpl implements DevopsIngressService {
             } else {
                 pathCheckList.add(hostPath);
             }
-            DevopsServiceE devopsServiceE = getDevopsService(serviceId);
-
-            if (devopsServiceE.getPorts().stream()
-                    .map(PortMapE::getPort).noneMatch(port -> port.equals(servicePort))) {
-                throw new CommonException(ERROR_SERVICE_NOT_CONTAIN_PORT);
-            }
+            DevopsServiceE devopsServiceE = devopsServiceRepository.query(serviceId);
 
             devopsIngressPathDOS.add(new DevopsIngressPathDO(
                     devopsIngressDTO.getId(), hostPath, rewritePath,
-                    devopsServiceE.getId(), devopsServiceE.getName(), servicePort));
+                    devopsServiceE == null ? null : devopsServiceE.getId(), devopsServiceE == null ? t.getServiceName() : devopsServiceE.getName(), servicePort));
             v1beta1Ingress.getSpec().getRules().get(0).getHttp().addPathsItem(
-                    createPath(hostPath, serviceId, servicePort));
-
+                    createPath(hostPath, t.getServiceName(), servicePort));
             /**
              * rewrite
              */

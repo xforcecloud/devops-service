@@ -14,6 +14,9 @@ public class C7nCertificationDTO {
     private String commonName;
     private List<String> domains;
     private String type;
+    private Long certId;
+    private String keyValue;
+    private String certValue;
     private String status;
     private Long envId;
     private String envName;
@@ -90,4 +93,30 @@ public class C7nCertificationDTO {
     public void setType(String type) {
         this.type = type;
     }
+
+    public Long getCertId() {
+        return certId;
+    }
+
+    public void setCertId(Long certId) {
+        this.certId = certId;
+    }
+
+    public String getKeyValue() {
+        return keyValue;
+    }
+
+    public void setKeyValue(String keyValue) {
+        this.keyValue = keyValue;
+    }
+
+    public String getCertValue() {
+        return certValue;
+    }
+
+    public void setCertValue(String certValue) {
+        this.certValue = certValue;
+    }
+
+
 }

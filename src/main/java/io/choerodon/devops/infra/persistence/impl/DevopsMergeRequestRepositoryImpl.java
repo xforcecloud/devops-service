@@ -1,13 +1,5 @@
 package io.choerodon.devops.infra.persistence.impl;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import io.choerodon.core.convertor.ConvertHelper;
 import io.choerodon.core.convertor.ConvertPageHelper;
 import io.choerodon.core.domain.Page;
@@ -19,6 +11,13 @@ import io.choerodon.devops.infra.mapper.DevopsMergeRequestMapper;
 import io.choerodon.mybatis.pagehelper.PageHelper;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
 import io.choerodon.mybatis.pagehelper.domain.Sort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 @Service
@@ -104,8 +103,7 @@ public class DevopsMergeRequestRepositoryImpl implements DevopsMergeRequestRepos
         } else {
             devopsMergeRequestE.setId(mergeRequestId);
             devopsMergeRequestE.setObjectVersionNumber(mergeRequestETemp.getObjectVersionNumber());
-            Integer temp = update(devopsMergeRequestE);
-            if (temp == 0) {
+            if (update(devopsMergeRequestE) == 0) {
                 throw new CommonException("error.update.merge.request");
             }
         }

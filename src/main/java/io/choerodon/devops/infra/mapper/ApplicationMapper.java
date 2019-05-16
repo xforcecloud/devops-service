@@ -15,13 +15,16 @@ public interface ApplicationMapper extends BaseMapper<ApplicationDO> {
     List<ApplicationDO> list(@Param("projectId") Long projectId,
                              @Param("isActive") Boolean isActive,
                              @Param("hasVersion") Boolean hasVersion,
+                             @Param("type") String type,
                              @Param("searchParam") Map<String, Object> searchParam,
                              @Param("param") String param,
                              @Param("index") String index);
 
     List<ApplicationDO> listCodeRepository(@Param("projectId") Long projectId,
                                            @Param("searchParam") Map<String, Object> searchParam,
-                                           @Param("param") String param);
+                                           @Param("param") String param,
+                                           @Param("isProjectOwner") Boolean isProjectOwner,
+                                           @Param("userId") Long userId);
 
     List<ApplicationDO> listByEnvId(@Param("projectId") Long projectId,
                                     @Param("envId") Long envId,
@@ -42,5 +45,5 @@ public interface ApplicationMapper extends BaseMapper<ApplicationDO> {
 
     List<ApplicationDO> listByCode(@Param("code") String code);
 
-    Integer selectOneWithCaseSensitive(@Param("projectId") Long projectId, @Param("appName") String appName);
+    List<ApplicationDO> listByGitLabProjectIds(@Param("gitlabProjectIds") List<Long> gitlabProjectIds);
 }

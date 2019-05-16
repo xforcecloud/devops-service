@@ -26,6 +26,7 @@ import io.choerodon.swagger.annotation.Permission;
 @RestController
 @RequestMapping(value = "/v1/organizations/{organization_id}/clusters")
 public class DevopsClusterController {
+    private static final String ERROR_CLUSTER_QUERY = "error.cluster.query";
 
     @Autowired
     DevopsClusterService devopsClusterService;
@@ -48,7 +49,6 @@ public class DevopsClusterController {
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.devops.cluster.insert"));
     }
-
 
     /**
      * 更新集群下的项目
@@ -85,19 +85,18 @@ public class DevopsClusterController {
             @PathVariable Long clusterId) {
         return Optional.ofNullable(devopsClusterService.getCluster(clusterId))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
-                .orElseThrow(() -> new CommonException("error.cluster.query"));
+                .orElseThrow(() -> new CommonException(ERROR_CLUSTER_QUERY));
     }
 
     /**
      * 校验集群名唯一性
      *
      * @param organizationId 项目id
-     * @param name
-     * @return boolean
+     * @param name           集群name
      */
     @Permission(level = ResourceLevel.ORGANIZATION, roles = {InitRoleCode.ORGANIZATION_ADMINISTRATOR})
     @ApiOperation(value = "校验集群名唯一性")
-    @GetMapping(value = "/checkName")
+    @GetMapping(value = "/check_name")
     public void checkName(
             @ApiParam(value = "组织Id", required = true)
             @PathVariable(value = "organization_id") Long organizationId,
@@ -110,12 +109,11 @@ public class DevopsClusterController {
      * 校验集群编码唯一性
      *
      * @param organizationId 项目id
-     * @param code
-     * @return boolean
+     * @param code           集群code
      */
     @Permission(level = ResourceLevel.ORGANIZATION, roles = {InitRoleCode.ORGANIZATION_ADMINISTRATOR})
     @ApiOperation(value = "校验集群名唯一性")
-    @GetMapping(value = "/checkCode")
+    @GetMapping(value = "/check_code")
     public void checkCode(
             @ApiParam(value = "组织Id", required = true)
             @PathVariable(value = "organization_id") Long organizationId,
@@ -123,7 +121,6 @@ public class DevopsClusterController {
             @RequestParam String code) {
         devopsClusterService.checkCode(organizationId, code);
     }
-
 
     /**
      * 分页查询项目列表
@@ -135,7 +132,7 @@ public class DevopsClusterController {
             roles = {InitRoleCode.ORGANIZATION_ADMINISTRATOR})
     @ApiOperation(value = "分页查询项目列表")
     @CustomPageRequest
-    @PostMapping("/pageProjects")
+    @PostMapping("/page_projects")
     public ResponseEntity<Page<ProjectDTO>> pageProjects(
             @ApiParam(value = "组织ID", required = true)
             @PathVariable(value = "organization_id") Long organizationId,
@@ -190,7 +187,7 @@ public class DevopsClusterController {
             @PathVariable Long clusterId) {
         return Optional.ofNullable(devopsClusterService.queryShell(clusterId))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
-                .orElseThrow(() -> new CommonException("error.cluster.query"));
+                .orElseThrow(() -> new CommonException(ERROR_CLUSTER_QUERY));
     }
 
     /**
@@ -209,11 +206,13 @@ public class DevopsClusterController {
             @PathVariable(value = "organization_id") Long organizationId,
             @ApiParam(value = "分页参数")
             @ApiIgnore PageRequest pageRequest,
+            @ApiParam(value = "是否需要分页")
+            @RequestParam(value = "doPage", required = false) Boolean doPage,
             @ApiParam(value = "查询参数")
             @RequestBody String params) {
-        return Optional.ofNullable(devopsClusterService.pageClusters(organizationId, pageRequest, params))
+        return Optional.ofNullable(devopsClusterService.pageClusters(organizationId, doPage, pageRequest, params))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
-                .orElseThrow(() -> new CommonException("error.cluster.query"));
+                .orElseThrow(() -> new CommonException(ERROR_CLUSTER_QUERY));
     }
 
     /**

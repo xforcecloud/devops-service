@@ -1,5 +1,8 @@
 package io.choerodon.devops.infra.persistence.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.stereotype.Component;
 
 import io.choerodon.core.convertor.ConvertHelper;
@@ -38,12 +41,45 @@ public class UserAttrRepositoryImpl implements UserAttrRepository {
             return null;
         }
         userAttrDO = userAttrMapper.selectOne(userAttrDO);
-        if(userAttrDO==null) {
+        if (userAttrDO == null) {
             return null;
-        }else {
+        } else {
             return userAttrDO.getIamUserId();
-
         }
+    }
+
+    @Override
+    public List<UserAttrE> listByUserIds(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return ConvertHelper.convertList(userAttrMapper.listByUserIds(userIds), UserAttrE.class);
+    }
+
+    public UserAttrE queryByGitlabUserId(Long gitlabUserId) {
+        UserAttrDO userAttrDO = new UserAttrDO();
+        userAttrDO.setGitlabUserId(gitlabUserId);
+        return ConvertHelper.convert(userAttrMapper.selectOne(userAttrDO), UserAttrE.class);
+    }
+
+    @Override
+    public void update(UserAttrE userAttrE) {
+        UserAttrDO userAttrDO = userAttrMapper.selectByPrimaryKey(userAttrE.getIamUserId());
+        userAttrDO.setGitlabToken(userAttrE.getGitlabToken());
+        userAttrDO.setGitlabUserName(userAttrE.getGitlabUserName());
+        userAttrMapper.updateByPrimaryKey(userAttrDO);
+    }
+
+    @Override
+    public List<UserAttrE> list() {
+        return ConvertHelper.convertList(userAttrMapper.selectAll(), UserAttrE.class);
+    }
+
+    @Override
+    public UserAttrE queryByGitlabUserName(String gitlabUserName) {
+        UserAttrDO userAttrDO  = new UserAttrDO();
+        userAttrDO.setGitlabUserName(gitlabUserName);
+        return ConvertHelper.convert(userAttrMapper.selectOne(userAttrDO), UserAttrE.class);
     }
 
 }

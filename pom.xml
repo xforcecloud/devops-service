@@ -51,13 +51,18 @@
                         <include>**/*Test.java</include>
                         <include>**/*Spec.java</include>
                     </includes>
+                    <forkMode>once</forkMode>
+                    <argLine>-Dfile.encoding=UTF-8 -Xmx1024m -XX:PermSize=256m -XX:MaxPermSize=256m</argLine>
                 </configuration>
             </plugin>
         </plugins>
     </build>
 
     <properties>
-        <choerodon.starters.version>0.6.1.RELEASE</choerodon.starters.version>
+        <choerodon.starters.version>0.8.1.RELEASE</choerodon.starters.version>
+
+        <!--use powermock-->
+        <powermock.version>1.7.4</powermock.version>
     </properties>
 
     <dependencies>
@@ -144,10 +149,6 @@
             <artifactId>rxjava</artifactId>
             <version>1.1.10</version>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-bus-kafka</artifactId>
-        </dependency>
         <!-- test -->
         <dependency>
             <groupId>junit</groupId>
@@ -170,23 +171,15 @@
             <artifactId>commons-io</artifactId>
             <version>2.4</version>
         </dependency>
-        <!--监控相关依赖 -->
-        <dependency><!-- 如果服务需要监控功能则需要此依赖 -->
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-stream-binder-kafka</artifactId>
-        </dependency>
-        <dependency><!-- 如果服务需要hystrix监控功能则需要此依赖 -->
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-netflix-hystrix-stream</artifactId>
-        </dependency>
-        <dependency><!-- 如果服务需要zipkin监控功能则需要此依赖 -->
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-sleuth-stream</artifactId>
-        </dependency>
         <dependency>
             <groupId>com.squareup.retrofit2</groupId>
             <artifactId>retrofit</artifactId>
             <version>2.3.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>2.5.1</version>
         </dependency>
         <dependency>
             <groupId>io.codearte.props2yaml</groupId>
@@ -199,16 +192,6 @@
             <version>2.3.0</version>
         </dependency>
         <dependency>
-            <groupId>io.choerodon</groupId>
-            <artifactId>choerodon-starter-event-consumer</artifactId>
-            <version>${choerodon.starters.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.choerodon</groupId>
-            <artifactId>choerodon-starter-event-producer</artifactId>
-            <version>${choerodon.starters.version}</version>
-        </dependency>
-        <dependency>
             <groupId>io.kubernetes</groupId>
             <artifactId>client-java</artifactId>
             <version>1.0.0-beta3</version>
@@ -217,7 +200,7 @@
         <dependency>
             <groupId>io.choerodon</groupId>
             <artifactId>choerodon-websocket-helper</artifactId>
-            <version>0.7.1.RELEASE</version>
+            <version>0.8.1.RELEASE</version>
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
@@ -277,6 +260,39 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-test</artifactId>
         </dependency>
+
+        <!--use powermock-->
+        <dependency>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-api-mockito</artifactId>
+            <version>${powermock.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-module-junit4</artifactId>
+            <version>${powermock.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-classloading-xstream</artifactId>
+            <version>${powermock.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-module-junit4-rule</artifactId>
+            <version>${powermock.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-module-junit4-rule-agent</artifactId>
+            <version>${powermock.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents/httpmime -->
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>

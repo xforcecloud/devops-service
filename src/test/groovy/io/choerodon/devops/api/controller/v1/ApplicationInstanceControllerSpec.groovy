@@ -1,11 +1,15 @@
 package io.choerodon.devops.api.controller.v1
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.choerodon.core.domain.Page
+import io.choerodon.core.exception.CommonException
+import io.choerodon.core.exception.ExceptionResponse
 import io.choerodon.devops.IntegrationTestConfiguration
 import io.choerodon.devops.api.dto.DeployFrequencyDTO
 import io.choerodon.devops.api.dto.DeployTimeDTO
 import io.choerodon.devops.api.dto.DevopsEnvPreviewDTO
 import io.choerodon.devops.api.dto.DevopsEnvResourceDTO
+import io.choerodon.devops.api.dto.InstanceDeploymentDTO
 import io.choerodon.devops.api.dto.iam.ProjectWithRoleDTO
 import io.choerodon.devops.api.dto.iam.RoleDTO
 import io.choerodon.devops.domain.application.repository.GitlabGroupMemberRepository
@@ -16,6 +20,7 @@ import io.choerodon.devops.domain.application.valueobject.ReplaceResult
 import io.choerodon.devops.infra.common.util.EnvUtil
 import io.choerodon.devops.infra.common.util.FileUtil
 import io.choerodon.devops.infra.common.util.GitUtil
+import io.choerodon.devops.infra.common.util.JsonYamlConversionUtil
 import io.choerodon.devops.infra.common.util.enums.AccessLevel
 import io.choerodon.devops.infra.dataobject.*
 import io.choerodon.devops.infra.dataobject.gitlab.MemberDO
@@ -56,6 +61,8 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
 @Subject(ApplicationInstanceController)
 @Stepwise
 class ApplicationInstanceControllerSpec extends Specification {
+
+    private static final String MAPPING = "/v1/projects/{project_id}/app_instances"
 
     @Autowired
     @Qualifier("mockEnvUtil")
@@ -213,7 +220,7 @@ class ApplicationInstanceControllerSpec extends Specification {
         devopsEnvCommandDO.setObject("instance")
         devopsEnvCommandDO.setStatus("operating")
         devopsEnvCommandDO.setObjectVersionId(1L)
-        devopsEnvCommandDO.setCommandType("commandType")
+        devopsEnvCommandDO.setCommandType("create")
 
         // decv
         devopsEnvCommandValueDO.setId(1L)
@@ -399,12 +406,18 @@ class ApplicationInstanceControllerSpec extends Specification {
 
         ResponseEntity<PipelineDO> responseEntity5 = new ResponseEntity<>(pipelineDO, HttpStatus.OK)
         Mockito.when(gitlabServiceClient.getPipeline(anyInt(), anyInt(), anyInt())).thenReturn(responseEntity5)
-//
-//        ResponseEntity<MemberDO> responseEntity6 = new ResponseEntity<>(memberDO, HttpStatus.OK)
-//        Mockito.when(gitlabServiceClient.getProjectMember(anyInt(), anyInt())).thenReturn(responseEntity6)
 
         ResponseEntity responseEntity6 = new ResponseEntity<>(HttpStatus.OK)
         Mockito.when(gitlabServiceClient.deleteFile(anyInt(), anyString(), anyString(), anyInt())).thenReturn(responseEntity6)
+
+        List<UserDO> userDOList = new ArrayList<>()
+        UserDO userDO1 = new UserDO()
+        userDO1.setLoginName("loginName")
+        userDO1.setRealName("realName")
+        userDOList.add(userDO1)
+        ResponseEntity<List<UserDO>> responseEntity7 = new ResponseEntity<>(userDOList, HttpStatus.OK)
+        Mockito.when(iamServiceClient.listUsersByIds(any(Long[].class))).thenReturn(responseEntity7)
+        Mockito.doReturn(responseEntity7).when(iamServiceClient).listUsersByIds(1L)
     }
 
     def "PageByOptions"() {
@@ -493,6 +506,85 @@ class ApplicationInstanceControllerSpec extends Specification {
 //    技术问题暂时不测试该方法
 //    def "PreviewValues"() {
 //    }
+    def "getDeploymentDetailsJsonByInstanceId"() {
+        given: "初始化数据库"
+        Map<String, Long> map = new HashMap<>(3)
+        String deploymentName = "test-deployment"
+        initForInstance(map, deploymentName)
+        Long projectId = 1L
+
+        when: '查询真实存在的数据'
+        def entity = restTemplate.getForEntity(MAPPING + "/{appInstanceId}/deployment_detail_json?deployment_name=" + deploymentName, InstanceDeploymentDTO, projectId, map.get("instanceId"))
+        then: '校验返回值'
+        entity.getStatusCode().is2xxSuccessful()
+        ((Map<String, Map>) entity.getBody().getDetail()).get("metadata") != null
+
+        and: "删除初始化的数据"
+        cleanDataInitializedInInstanceInit(map)
+
+        when: '查询不存在的数据时'
+        entity = restTemplate.getForEntity(MAPPING + "/{appInstanceId}/deployment_detail_json?deployment_name=" + deploymentName, ExceptionResponse, projectId, map.get("instanceId"))
+
+        then: '校验返回值'
+        entity.getStatusCode().is2xxSuccessful()
+        entity.getBody().getCode() == "error.instance.deployment.not.found"
+    }
+
+    def "getDeploymentDetailsYamlByInstanceId"() {
+        given: "初始化数据库"
+        Map<String, Long> map = new HashMap<>(3)
+        String deploymentName = "test-deployment"
+        initForInstance(map, deploymentName)
+        Long projectId = 1L
+
+        when: '查询真实存在的数据'
+        def entity = restTemplate.getForEntity(MAPPING + "/{appInstanceId}/deployment_detail_yaml?deployment_name=" + deploymentName, InstanceDeploymentDTO, projectId, map.get("instanceId"))
+
+        then: '校验返回值'
+        entity.getStatusCode().is2xxSuccessful()
+        new ObjectMapper().readTree(JsonYamlConversionUtil.yaml2json(entity.getBody().getDetail().toString())).get("metadata") != null
+
+        and: "删除初始化的数据"
+        cleanDataInitializedInInstanceInit(map)
+
+        when: '查询不存在的数据时'
+        entity = restTemplate.getForEntity(MAPPING + "/{appInstanceId}/deployment_detail_yaml?deployment_name=" + deploymentName, ExceptionResponse, projectId, map.get("instanceId"))
+
+        then: '校验返回值'
+        entity.getStatusCode().is2xxSuccessful()
+        entity.getBody().getCode() == "error.instance.deployment.not.found"
+    }
+
+    def initForInstance(Map<String, Long> map, String deploymentName) {
+        ApplicationInstanceDO instanceInit = new ApplicationInstanceDO()
+        instanceInit.setCode("dependency-chart-59dad")
+        instanceInit.setAppId(1L)
+        instanceInit.setEnvId(1L)
+        instanceInit.setCommandId(1L)
+        applicationInstanceMapper.insert(instanceInit)
+
+        DevopsEnvResourceDetailDO detailInit = new DevopsEnvResourceDetailDO()
+        detailInit.setMessage("{\"metadata\":{\"name\":\"ins4\",\"namespace\":\"env1112\",\"selfLink\":\"/apis/extensions/v1beta1/namespaces/env1112/deployments/ins4\",\"uid\":\"d444dd68-f44c-11e8-aca1-525400d91faf\",\"resourceVersion\":\"69026386\",\"generation\":2,\"creationTimestamp\":\"2018-11-30T03:05:45Z\",\"labels\":{\"choerodon.io\":\"2018.11.30-105053-master\",\"choerodon.io/application\":\"code-i\",\"choerodon.io/logs-parser\":\"nginx\",\"choerodon.io/release\":\"ins4\",\"choerodon.io/version\":\"2018.11.20-135445-master\"},\"annotations\":{\"deployment.kubernetes.io/revision\":\"2\"}},\"spec\":{\"replicas\":1,\"selector\":{\"matchLabels\":{\"choerodon.io/release\":\"ins4\"}},\"template\":{\"metadata\":{\"creationTimestamp\":null,\"labels\":{\"choerodon.io\":\"2018.11.30-105053-master\",\"choerodon.io/application\":\"code-i\",\"choerodon.io/release\":\"ins4\",\"choerodon.io/version\":\"2018.11.20-135445-master\"}},\"spec\":{\"containers\":[{\"name\":\"ins4\",\"image\":\"registry.saas.hand-china.com/code-x-code-x/code-i:2018.11.20-135445-master\",\"ports\":[{\"name\":\"http\",\"containerPort\":80,\"protocol\":\"TCP\"}],\"env\":[{\"name\":\"PRO_API_HOST\",\"value\":\"api.example.com.cn\"},{\"name\":\"PRO_CLIENT_ID\",\"value\":\"example\"},{\"name\":\"PRO_COOKIE_SERVER\",\"value\":\"example.com.cn\"},{\"name\":\"PRO_HEADER_TITLE_NAME\",\"value\":\"Choerodon\"},{\"name\":\"PRO_HTTP\",\"value\":\"http\"},{\"name\":\"PRO_LOCAL\",\"value\":\"true\"},{\"name\":\"PRO_TITLE_NAME\",\"value\":\"Choerodon\"}],\"resources\":{},\"terminationMessagePath\":\"/dev/termination-log\",\"terminationMessagePolicy\":\"File\",\"imagePullPolicy\":\"IfNotPresent\"}],\"restartPolicy\":\"Always\",\"terminationGracePeriodSeconds\":30,\"dnsPolicy\":\"ClusterFirst\",\"securityContext\":{},\"schedulerName\":\"default-scheduler\"}},\"strategy\":{\"type\":\"RollingUpdate\",\"rollingUpdate\":{\"maxUnavailable\":\"25%\",\"maxSurge\":\"25%\"}},\"revisionHistoryLimit\":10,\"progressDeadlineSeconds\":600},\"status\":{\"observedGeneration\":2,\"replicas\":1,\"updatedReplicas\":1,\"readyReplicas\":1,\"availableReplicas\":1,\"conditions\":[{\"type\":\"Available\",\"status\":\"True\",\"lastUpdateTime\":\"2018-11-30T03:05:49Z\",\"lastTransitionTime\":\"2018-11-30T03:05:49Z\",\"reason\":\"MinimumReplicasAvailable\",\"message\":\"Deployment has minimum availability.\"},{\"type\":\"Progressing\",\"status\":\"True\",\"lastUpdateTime\":\"2018-12-02T08:20:37Z\",\"lastTransitionTime\":\"2018-11-30T03:05:45Z\",\"reason\":\"NewReplicaSetAvailable\",\"message\":\"ReplicaSet \\\"ins4-786469cf45\\\" has successfully progressed.\"}]}}")
+        devopsEnvResourceDetailMapper.insert(detailInit)
+
+        DevopsEnvResourceDO resourceInit = new DevopsEnvResourceDO()
+        resourceInit.setAppInstanceId(instanceInit.getId())
+        resourceInit.setKind("Deployment")
+        resourceInit.setResourceDetailId(detailInit.getId())
+        resourceInit.setName(deploymentName)
+        devopsEnvResourceMapper.insert(resourceInit)
+
+        map.put("instanceId", instanceInit.getId())
+        map.put("resourceId", resourceInit.getId())
+        map.put("detailId", detailInit.getId())
+    }
+
+    def cleanDataInitializedInInstanceInit(Map<String, Long> map) {
+        devopsEnvResourceDetailMapper.deleteByPrimaryKey(map.get("detailId"))
+        devopsEnvResourceMapper.deleteByPrimaryKey(map.get("resourceId"))
+        applicationInstanceMapper.deleteByPrimaryKey(map.get("instanceId"))
+    }
+
 
     def "FormatValue"() {
         given: '初始化replaceResult'
@@ -578,12 +670,12 @@ class ApplicationInstanceControllerSpec extends Specification {
         dto.getReplicaSetDTOS().get(0)["name"] == "springboot-14f93-55f7896455"
     }
 
-    def "ListStages"() {
-        when: '获取部署实例hook阶段'
-        def list = restTemplate.getForObject("/v1/projects/1/app_instances/1/stages", List.class)
+    def "ListEvents"() {
+        when: '获取部署实例Event事件'
+        def list = restTemplate.getForObject(MAPPING + "/1/events", List.class, 1L)
 
         then: '校验返回值'
-        list.get(0)["stageName"] == "cctestws-7bc7a-init-db"
+        list.get(0)["podEventDTO"].get(0)["name"] == "commandEvent"
     }
 
     def "Stop"() {
@@ -627,7 +719,7 @@ class ApplicationInstanceControllerSpec extends Specification {
         restTemplate.put("/v1/projects/1/app_instances/1/restart", null)
 
         then: '校验返回值'
-        devopsEnvCommandMapper.selectAll().get(4)["commandType"] == "commandType"
+        devopsEnvCommandMapper.selectAll().get(4)["commandType"] == "update"
     }
 
     def "Delete"() {
@@ -646,6 +738,15 @@ class ApplicationInstanceControllerSpec extends Specification {
 
         then: '校验是否删除'
         devopsEnvCommandMapper.selectAll().get(5)["commandType"] == "delete"
+    }
+
+    def "CheckName"() {
+        when: '校验实例名唯一性'
+        def exception = restTemplate.getForEntity(MAPPING + "/check_name?instance_name=uniqueName", ExceptionResponse.class, 1L)
+
+        then: '名字不存在不抛出异常'
+        exception.statusCode.is2xxSuccessful()
+        notThrown(CommonException)
     }
 
     def "ListByEnv"() {
@@ -854,6 +955,20 @@ class ApplicationInstanceControllerSpec extends Specification {
         if (list14 != null && !list14.isEmpty()) {
             for (DevopsEnvUserPermissionDO e : list14) {
                 devopsEnvUserPermissionMapper.delete(e)
+            }
+        }
+        // 删除commandEvent
+        List<DevopsCommandEventDO> list15 = devopsCommandEventMapper.selectAll()
+        if (list15 != null && !list15.isEmpty()) {
+            for (DevopsCommandEventDO e : list15) {
+                devopsCommandEventMapper.delete(e)
+            }
+        }
+        // 删除envCommandLog
+        List<DevopsEnvCommandLogDO> list16 = devopsEnvCommandLogMapper.selectAll()
+        if (list16 != null && !list16.isEmpty()) {
+            for (DevopsEnvCommandLogDO e : list16) {
+                devopsEnvCommandLogMapper.delete(e)
             }
         }
         FileUtil.deleteDirectory(new File("gitops"))

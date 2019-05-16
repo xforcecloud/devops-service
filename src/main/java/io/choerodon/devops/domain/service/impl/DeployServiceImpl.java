@@ -2,9 +2,13 @@ package io.choerodon.devops.domain.service.impl;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
+import com.alibaba.fastjson.JSONArray;
+import io.codearte.props2yaml.Props2YAML;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,23 +18,25 @@ import io.choerodon.core.exception.CommonException;
 import io.choerodon.devops.api.dto.GitConfigDTO;
 import io.choerodon.devops.api.dto.GitEnvConfigDTO;
 import io.choerodon.devops.domain.application.entity.*;
-import io.choerodon.devops.domain.application.repository.DevopsClusterRepository;
-import io.choerodon.devops.domain.application.repository.DevopsEnvironmentRepository;
 import io.choerodon.devops.domain.application.repository.IamRepository;
 import io.choerodon.devops.domain.application.valueobject.Organization;
 import io.choerodon.devops.domain.application.valueobject.Payload;
 import io.choerodon.devops.domain.service.DeployService;
 import io.choerodon.devops.infra.common.util.EnvUtil;
+import io.choerodon.devops.infra.common.util.FileUtil;
 import io.choerodon.devops.infra.common.util.GitUtil;
 import io.choerodon.devops.infra.common.util.enums.HelmType;
 import io.choerodon.websocket.Msg;
 import io.choerodon.websocket.helper.CommandSender;
+import io.choerodon.websocket.helper.EnvListener;
 
 /**
  * Created by younger on 2018/4/18.
  */
 @Service
 public class DeployServiceImpl implements DeployService {
+    private static final String ERROR_PAYLOAD_ERROR = "error.payload.error";
+    private static final String KEY_FORMAT = "cluster:%d.release:%s";
 
     private static final String INIT_AGENT = "init_agent";
     private static final String DELETE_ENV = "delete_env";
@@ -41,18 +47,22 @@ public class DeployServiceImpl implements DeployService {
     private CommandSender commandSender;
 
     @Autowired
-    private DevopsEnvironmentRepository devopsEnvironmentRepository;
-    @Autowired
     private IamRepository iamRepository;
     @Autowired
-    private DevopsClusterRepository devopsClusterRepository;
-    @Autowired
     private EnvUtil envUtil;
+    @Autowired
+    private EnvListener envListener;
 
     @Value("${services.helm.url}")
     private String helmUrl;
+    @Value("${agent.repoUrl}")
+    private String agentRepoUrl;
     @Value("${services.gitlab.sshUrl}")
     private String gitlabSshUrl;
+    @Value("${agent.version}")
+    private String agentExpectVersion;
+    @Value("${agent.serviceUrl}")
+    private String agentServiceUrl;
 
     @Autowired
     public DeployServiceImpl(CommandSender commandSender) {
@@ -70,25 +80,72 @@ public class DeployServiceImpl implements DeployService {
 
 
     @Override
-    public void deploy(ApplicationE applicationE, ApplicationVersionE applicationVersionE, ApplicationInstanceE applicationInstanceE, DevopsEnvironmentE devopsEnvironmentE, String values, Long commandId) {
+    public void deploy(ApplicationE applicationE, ApplicationVersionE applicationVersionE, String releaseName, DevopsEnvironmentE devopsEnvironmentE, String values, Long commandId) {
         Msg msg = new Msg();
         Payload payload = new Payload(
                 devopsEnvironmentE.getCode(),
                 helmUrl + applicationVersionE.getRepository(),
                 applicationE.getCode(),
                 applicationVersionE.getVersion(),
-                values, applicationInstanceE.getCode());
+                values, releaseName);
         msg.setKey(String.format("cluster:%d.env:%s.envId:%d.release:%s",
                 devopsEnvironmentE.getClusterE().getId(),
                 devopsEnvironmentE.getCode(),
                 devopsEnvironmentE.getId(),
-                applicationInstanceE.getCode()));
+                releaseName));
         msg.setType(HelmType.HELM_RELEASE_PRE_UPGRADE.toValue());
         try {
             msg.setPayload(mapper.writeValueAsString(payload));
             msg.setCommandId(commandId);
         } catch (IOException e) {
-            throw new CommonException("error.payload.error", e);
+            throw new CommonException(ERROR_PAYLOAD_ERROR, e);
+        }
+        commandSender.sendMsg(msg);
+    }
+
+    @Override
+    public void upgradeCluster(DevopsClusterE devopsClusterE) {
+        Msg msg = new Msg();
+        Map<String, String> configs = new HashMap<>();
+        configs.put("config.connect", agentServiceUrl);
+        configs.put("config.token", devopsClusterE.getToken());
+        configs.put("config.clusterId", devopsClusterE.getId().toString());
+        configs.put("config.choerodonId", devopsClusterE.getChoerodonId());
+        configs.put("rbac.create", "true");
+        Payload payload = new Payload(
+                "choerodon",
+                agentRepoUrl,
+                "choerodon-cluster-agent",
+                agentExpectVersion,
+                Props2YAML.fromContent(FileUtil.propertiesToString(configs))
+                        .convert(), "choerodon-cluster-agent-" + devopsClusterE.getCode());
+        msg.setKey(String.format(KEY_FORMAT,
+                devopsClusterE.getId(),
+                "choerodon-cluster-agent-" + devopsClusterE.getCode()));
+        msg.setType(HelmType.HELM_RELEASE_UPGRADE.toValue());
+        try {
+            msg.setPayload(mapper.writeValueAsString(payload));
+        } catch (IOException e) {
+            throw new CommonException(ERROR_PAYLOAD_ERROR, e);
+        }
+        commandSender.sendMsg(msg);
+    }
+
+    @Override
+    public void createCertManager(Long clusterId) {
+        Msg msg = new Msg();
+        Payload payload = new Payload(
+                "kube-system",
+                agentRepoUrl,
+                "cert-manager",
+                agentExpectVersion,
+                null, "choerodon-cert-manager");
+        msg.setKey(String.format(KEY_FORMAT, clusterId, "choerodon-cert-manager"));
+        msg.setType(HelmType.HELM_INSTALL_RELEASE.toValue());
+        try {
+            msg.setPayload(mapper.writeValueAsString(payload));
+        } catch (IOException e) {
+            throw new CommonException(ERROR_PAYLOAD_ERROR, e);
         }
         commandSender.sendMsg(msg);
     }
@@ -138,6 +195,41 @@ public class DeployServiceImpl implements DeployService {
     }
 
     @Override
+    public void deployTestApp(ApplicationE applicationE, ApplicationVersionE applicationVersionE, String releaseName, Long clusterId, String values) {
+        Msg msg = new Msg();
+        Payload payload = new Payload(
+                null,
+                helmUrl + applicationVersionE.getRepository(),
+                applicationE.getCode(),
+                applicationVersionE.getVersion(),
+                values, releaseName);
+        msg.setKey(String.format(KEY_FORMAT, clusterId, releaseName));
+        msg.setType(HelmType.EXECUTE_TEST.toValue());
+        try {
+            msg.setPayload(mapper.writeValueAsString(payload));
+        } catch (IOException e) {
+            throw new CommonException(ERROR_PAYLOAD_ERROR, e);
+        }
+        commandSender.sendMsg(msg);
+
+    }
+
+    @Override
+    public void getTestAppStatus(Map<Long, List<String>> testReleases) {
+        List<Long> connected = envUtil.getConnectedEnvList(envListener);
+        testReleases.forEach((key, value) -> {
+            if(connected.contains(key)) {
+                Msg msg = new Msg();
+                msg.setKey(String.format("cluster:%d",
+                        key));
+                msg.setPayload(JSONArray.toJSONString(value));
+                msg.setType(HelmType.TEST_STATUS.toValue());
+            commandSender.sendMsg(msg);
+            }
+        });
+    }
+
+    @Override
     public void deleteEnv(Long envId, String code, Long clusterId) {
         GitEnvConfigDTO gitEnvConfigDTO = new GitEnvConfigDTO();
         gitEnvConfigDTO.setEnvId(envId);
@@ -152,5 +244,6 @@ public class DeployServiceImpl implements DeployService {
         msg.setKey(String.format("cluster:%s", clusterId));
         commandSender.sendMsg(msg);
     }
+
 
 }

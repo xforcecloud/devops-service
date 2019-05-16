@@ -1,7 +1,10 @@
 package io.choerodon.devops.app.service.impl;
 
 import java.sql.Timestamp;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
 
 import io.kubernetes.client.JSON;
 import io.kubernetes.client.models.*;
@@ -11,6 +14,7 @@ import org.springframework.stereotype.Service;
 import io.choerodon.devops.api.dto.*;
 import io.choerodon.devops.app.service.DevopsEnvResourceService;
 import io.choerodon.devops.domain.application.entity.*;
+import io.choerodon.devops.domain.application.entity.iam.UserE;
 import io.choerodon.devops.domain.application.repository.*;
 import io.choerodon.devops.infra.common.util.K8sUtil;
 import io.choerodon.devops.infra.common.util.TypeUtil;
@@ -42,6 +46,8 @@ public class DevopsEnvResourceServiceImpl implements DevopsEnvResourceService {
     private DevopsCommandEventRepository devopsCommandEventRepository;
     @Autowired
     private ApplicationInstanceRepository applicationInstanceRepository;
+    @Autowired
+    private IamRepository iamRepository;
 
     @Override
     public DevopsEnvResourceDTO listResources(Long instanceId) {
@@ -82,10 +88,21 @@ public class DevopsEnvResourceServiceImpl implements DevopsEnvResourceService {
                                         devopsServiceE.getId());
                         domainNames.stream().forEach(domainName -> {
                             DevopsEnvResourceE devopsEnvResourceE1 =
-                                    devopsEnvResourceRepository.queryByInstanceIdAndKindAndName(
+                                    devopsEnvResourceRepository.queryResource(
                                             null,
+                                            null,
+                                            applicationInstanceE.getDevopsEnvironmentE().getId(),
                                             "Ingress",
                                             domainName);
+                            //升级0.11.0-0.12.0,资源表新增envId,修复以前的域名数据
+                            if (devopsEnvResourceE1 == null) {
+                                devopsEnvResourceE1 = devopsEnvResourceRepository.queryResource(
+                                        null,
+                                        null,
+                                        null,
+                                        "Ingress",
+                                        domainName);
+                            }
                             if (devopsEnvResourceE1 != null) {
                                 DevopsEnvResourceDetailE devopsEnvResourceDetailE1 =
                                         devopsEnvResourceDetailRepository.query(
@@ -120,84 +137,107 @@ public class DevopsEnvResourceServiceImpl implements DevopsEnvResourceService {
         return devopsEnvResourceDTO;
     }
 
+
     @Override
-    public List<InstanceStageDTO> listStages(Long instanceId) {
-        DevopsEnvCommandE devopsEnvCommandE = devopsEnvCommandRepository
-                .queryByObject(ObjectType.INSTANCE.getType(), instanceId);
-        List<DevopsEnvResourceE> devopsEnvResourceES =
-                devopsEnvResourceRepository.listJobByInstanceId(instanceId);
-        List<InstanceStageDTO> instanceStageDTOS = new ArrayList<>();
-        devopsEnvResourceES.forEach(devopsInstanceResourceE -> {
-            if (devopsInstanceResourceE.getKind().equals(ResourceType.JOB.getType())) {
+    public List<InstanceEventDTO> listInstancePodEvent(Long instanceId) {
+        List<InstanceEventDTO> instanceEventDTOS = new ArrayList<>();
+        List<DevopsEnvCommandE> devopsEnvCommandES = devopsEnvCommandRepository
+                .queryInstanceCommand(ObjectType.INSTANCE.getType(), instanceId);
+        devopsEnvCommandES.forEach(devopsEnvCommandE -> {
+            InstanceEventDTO instanceEventDTO = new InstanceEventDTO();
+            UserE userE = iamRepository.queryUserByUserId(devopsEnvCommandE.getCreatedBy());
+            instanceEventDTO.setLoginName(userE == null ? null : userE.getLoginName());
+            instanceEventDTO.setRealName(userE == null ? null : userE.getRealName());
+            instanceEventDTO.setStatus(devopsEnvCommandE.getStatus());
+            instanceEventDTO.setUserImage(userE == null ? null : userE.getImageUrl());
+            instanceEventDTO.setCreateTime(devopsEnvCommandE.getCreationDate());
+            List<PodEventDTO> podEventDTOS = new ArrayList<>();
+            //获取实例中job的event
+            List<DevopsCommandEventE> devopsCommandJobEventES = devopsCommandEventRepository
+                    .listByCommandIdAndType(devopsEnvCommandE.getId(), ResourceType.JOB.getType());
+            if (!devopsCommandJobEventES.isEmpty()) {
+                LinkedHashMap<String, String> jobEvents = getDevopsCommandEvent(devopsCommandJobEventES);
+                jobEvents.forEach((key, value) -> {
+                    PodEventDTO podEventDTO = new PodEventDTO();
+                    podEventDTO.setName(key);
+                    podEventDTO.setEvent(value);
+                    podEventDTOS.add(podEventDTO);
+                });
+            }
+            List<DevopsEnvResourceE> jobs = devopsEnvResourceRepository.listJobs(devopsEnvCommandE.getId());
+            List<DevopsEnvCommandLogE> devopsEnvCommandLogES = devopsEnvCommandLogRepository
+                    .queryByDeployId(devopsEnvCommandE.getId());
+            for (int i = 0; i < jobs.size(); i++) {
+                DevopsEnvResourceE job = jobs.get(i);
                 DevopsEnvResourceDetailE devopsEnvResourceDetailE =
                         devopsEnvResourceDetailRepository.query(
-                                devopsInstanceResourceE.getDevopsEnvResourceDetailE().getId());
+                                job.getDevopsEnvResourceDetailE().getId());
                 V1Job v1Job = json.deserialize(devopsEnvResourceDetailE.getMessage(), V1Job.class);
-                InstanceStageDTO instanceStageDTO = new InstanceStageDTO();
-                getInstanceStage(v1Job, instanceStageDTO, devopsInstanceResourceE.getWeight());
-                instanceStageDTOS.add(instanceStageDTO);
+                //job日志
+                if (i <= devopsEnvCommandLogES.size() - 1) {
+                    if (podEventDTOS.size() == i) {
+                        PodEventDTO podEventDTO = new PodEventDTO();
+                        podEventDTO.setName(v1Job.getMetadata().getName());
+                        podEventDTOS.add(podEventDTO);
+                    }
+                    podEventDTOS.get(i).setLog(devopsEnvCommandLogES.get(i).getLog());
+                }
+                //获取job状态
+                if (i <= podEventDTOS.size() - 1) {
+                    if (podEventDTOS.size() == i) {
+                        PodEventDTO podEventDTO = new PodEventDTO();
+                        podEventDTOS.add(podEventDTO);
+                    }
+                    setJobStatus(v1Job, podEventDTOS.get(i));
+                }
+            }
+            //获取实例中pod的event
+            List<DevopsCommandEventE> devopsCommandPodEventES = devopsCommandEventRepository
+                    .listByCommandIdAndType(devopsEnvCommandE.getId(), ResourceType.POD.getType());
+            if (!devopsCommandPodEventES.isEmpty()) {
+                LinkedHashMap<String, String> podEvents = getDevopsCommandEvent(devopsCommandPodEventES);
+                podEvents.forEach((key, value) -> {
+                    PodEventDTO podEventDTO = new PodEventDTO();
+                    podEventDTO.setName(key);
+                    podEventDTO.setEvent(value);
+                    podEventDTOS.add(podEventDTO);
+                });
+            }
+            instanceEventDTO.setPodEventDTO(podEventDTOS);
+            if (!instanceEventDTO.getPodEventDTO().isEmpty()) {
+                instanceEventDTOS.add(instanceEventDTO);
             }
         });
-        List<DevopsEnvCommandLogE> devopsEnvCommandLogES = devopsEnvCommandLogRepository
-                .queryByDeployId(devopsEnvCommandE.getId());
-        List<String> results = new ArrayList<>();
-        getDevopsCommandEvent(devopsEnvCommandE, results);
-        for (int i = 0; i < results.size(); i++) {
-            String log = "";
-            if (devopsEnvCommandLogES.size() - i > 0) {
-                log = devopsEnvCommandLogES.get(i).getLog();
-            }
-            InstanceStageDTO instanceStageDTO = instanceStageDTOS.get(i);
-            instanceStageDTO.setLog(results.get(i) + System.getProperty(LINE_SEPARATOR)
-                    + System.getProperty(LINE_SEPARATOR) + log);
-        }
-        return instanceStageDTOS;
+        return instanceEventDTOS;
     }
 
-    private void getInstanceStage(V1Job v1Job, InstanceStageDTO instanceStageDTO, Long weight) {
-        instanceStageDTO.setStageName(v1Job.getMetadata().getName());
-        instanceStageDTO.setWeight(weight);
-        if (v1Job.getStatus() != null
-                && v1Job.getStatus().getSucceeded() != null) {
-            if (v1Job.getStatus().getSucceeded() == 1) {
-                instanceStageDTO.setStatus("success");
-                if (v1Job.getStatus().getStartTime() != null
-                        && v1Job.getStatus().getCompletionTime() != null) {
-                    instanceStageDTO.setStageTime(
-                            getStageTime(new Timestamp(v1Job.getStatus().getStartTime().toDate().getTime()),
-                                    new Timestamp(v1Job.getStatus().getCompletionTime().toDate().getTime()))
-                    );
-                }
+
+    private void setJobStatus(V1Job v1Job, PodEventDTO podEventDTO) {
+        if (v1Job.getStatus() != null) {
+            if (v1Job.getStatus().getSucceeded() != null && v1Job.getStatus().getSucceeded() == 1) {
+                podEventDTO.setJobPodStatus("success");
+            } else if (v1Job.getStatus().getFailed() != null) {
+                podEventDTO.setJobPodStatus("fail");
             } else {
-                instanceStageDTO.setStatus("fail");
+                podEventDTO.setJobPodStatus("running");
             }
         }
     }
 
 
-    private void getDevopsCommandEvent(DevopsEnvCommandE devopsEnvCommandE, List<String> results) {
-        List<DevopsCommandEventE> devopsCommandEventES = devopsCommandEventRepository
-                .listByCommandIdAndType(devopsEnvCommandE.getId(), ResourceType.JOB.getType());
+    private LinkedHashMap<String, String> getDevopsCommandEvent(List<DevopsCommandEventE> devopsCommandEventES) {
         devopsCommandEventES.sort(Comparator.comparing(DevopsCommandEventE::getId));
-        LinkedHashMap<String, List<DevopsCommandEventE>> event = new LinkedHashMap<>();
+        LinkedHashMap<String, String> event = new LinkedHashMap<>();
         for (DevopsCommandEventE devopsCommandEventE : devopsCommandEventES) {
             if (!event.containsKey(devopsCommandEventE.getName())) {
-                List<DevopsCommandEventE> commandEventES = new ArrayList<>();
-                commandEventES.add(devopsCommandEventE);
-                event.put(devopsCommandEventE.getName(), commandEventES);
+                event.put(devopsCommandEventE.getName(), devopsCommandEventE.getMessage() + System.getProperty(LINE_SEPARATOR));
             } else {
-                event.get(devopsCommandEventE.getName()).add(devopsCommandEventE);
+                event.put(devopsCommandEventE.getName(), event.get(devopsCommandEventE.getName()) + devopsCommandEventE.getMessage() + System.getProperty(LINE_SEPARATOR));
             }
         }
-        for (Map.Entry<String, List<DevopsCommandEventE>> entry : event.entrySet()) {
-            String[] a = {""};
-            entry.getValue().stream().forEach(t -> {
-                a[0] += t.getMessage();
-                a[0] += System.getProperty(LINE_SEPARATOR);
-            });
-            results.add(a[0]);
-        }
+        return event;
     }
+
 
     /**
      * 增加pod资源
@@ -240,6 +280,11 @@ public class DevopsEnvResourceServiceImpl implements DevopsEnvResourceService {
         deploymentDTO.setUpToDate(TypeUtil.objToLong(v1beta2Deployment.getStatus().getUpdatedReplicas()));
         deploymentDTO.setAvailable(TypeUtil.objToLong(v1beta2Deployment.getStatus().getAvailableReplicas()));
         deploymentDTO.setAge(v1beta2Deployment.getMetadata().getCreationTimestamp().toString());
+        v1beta2Deployment.getStatus().getConditions().forEach(v1beta2DeploymentCondition -> {
+            if ("NewReplicaSetAvailable".equals(v1beta2DeploymentCondition.getReason())) {
+                deploymentDTO.setAge(v1beta2DeploymentCondition.getLastUpdateTime().toString());
+            }
+        });
         devopsEnvResourceDTO.getDeploymentDTOS().add(deploymentDTO);
     }
 

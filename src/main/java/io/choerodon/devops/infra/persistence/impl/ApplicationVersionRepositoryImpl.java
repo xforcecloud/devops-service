@@ -123,7 +123,9 @@ public class ApplicationVersionRepositoryImpl implements ApplicationVersionRepos
     }
 
     @Override
-    public Page<ApplicationVersionE> listApplicationVersionInApp(Long projectId, Long appId, PageRequest pageRequest, String searchParam) {
+    public Page<ApplicationVersionE> listApplicationVersionInApp(Long projectId, Long appId, PageRequest pageRequest,
+                                                                 String searchParam, Boolean isProjectOwner,
+                                                                 Long userId) {
         if (pageRequest.getSort() != null) {
             Map<String, String> map = new HashMap<>();
             map.put("version", "dav.version");
@@ -136,14 +138,14 @@ public class ApplicationVersionRepositoryImpl implements ApplicationVersionRepos
         Page<ApplicationVersionDO> applicationVersionQueryDOPage;
         if (!StringUtils.isEmpty(searchParam)) {
             Map<String, Object> searchParamMap = json.deserialize(searchParam, Map.class);
-            applicationVersionQueryDOPage = PageHelper.doPageAndSort(
-                    pageRequest, () -> applicationVersionMapper.listApplicationVersion(
-                            projectId, appId,
+            applicationVersionQueryDOPage = PageHelper
+                    .doPageAndSort(pageRequest, () -> applicationVersionMapper.listApplicationVersion(projectId, appId,
                             TypeUtil.cast(searchParamMap.get(TypeUtil.SEARCH_PARAM)),
-                            TypeUtil.cast(searchParamMap.get(TypeUtil.PARAM))));
+                            TypeUtil.cast(searchParamMap.get(TypeUtil.PARAM)), isProjectOwner, userId));
         } else {
             applicationVersionQueryDOPage = PageHelper.doPageAndSort(
-                    pageRequest, () -> applicationVersionMapper.listApplicationVersion(projectId, appId, null, null));
+                    pageRequest, () -> applicationVersionMapper
+                            .listApplicationVersion(projectId, appId, null, null, isProjectOwner, userId));
         }
         return ConvertPageHelper.convertPage(applicationVersionQueryDOPage, ApplicationVersionE.class);
     }
@@ -232,5 +234,10 @@ public class ApplicationVersionRepositoryImpl implements ApplicationVersionRepos
     @Override
     public ApplicationVersionE getLatestVersion(Long appId) {
         return ConvertHelper.convert(applicationVersionMapper.getLatestVersion(appId), ApplicationVersionE.class);
+    }
+
+    @Override
+    public List<ApplicationVersionE> listByAppVersionIds(List<Long> appVersionIds) {
+        return ConvertHelper.convertList(applicationVersionMapper.listByAppVersionIds(appVersionIds), ApplicationVersionE.class);
     }
 }

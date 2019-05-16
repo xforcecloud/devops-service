@@ -36,13 +36,13 @@ databaseChangeLog(logicalFilePath: 'dba/devops_application.groovy') {
     }
 
     changeSet(author: 'younger', id: '2018-09-03-modify-UniqueConstraint') {
-        dropUniqueConstraint(constraintName: "uk_project_id_name",tableName: "devops_application")
+        dropUniqueConstraint(constraintName: "uk_project_id_name", tableName: "devops_application")
         addUniqueConstraint(tableName: 'devops_application',
                 constraintName: 'devops_app_uk_project_id_name', columnNames: 'project_id,name')
     }
 
     changeSet(author: 'younger', id: '2018-09-03-modify-index') {
-        dropIndex(indexName: "idx_project_id",tableName: "devops_application")
+        dropIndex(indexName: "idx_project_id", tableName: "devops_application")
 
         createIndex(indexName: "devops_app_idx_project_id", tableName: "devops_application") {
             column(name: "project_id")
@@ -54,5 +54,27 @@ databaseChangeLog(logicalFilePath: 'dba/devops_application.groovy') {
             column(name: 'is_failed', type: 'TINYINT UNSIGNED', remarks: '是否创建失败', afterColumn: 'is_synchro')
         }
 
+    }
+
+    changeSet(author: 'n1ck', id: '2018-11-20-modify-column-collate') {
+        sql("ALTER TABLE devops_application MODIFY COLUMN `name` VARCHAR(64) BINARY")
+    }
+
+    changeSet(author: 'younger', id: '2018-11-22-add-column') {
+        addColumn(tableName: 'devops_application') {
+            column(name: 'type', type: 'VARCHAR(50)', remarks: '应用类型', afterColumn: 'code')
+        }
+        sql("UPDATE devops_application  da SET da.type = 'normal'")
+    }
+
+    changeSet(author: 'n1ck', id: '2018-11-23-add-column') {
+        addColumn(tableName: 'devops_application') {
+            column(name: 'is_skip_check_permission', type: 'TINYINT UNSIGNED', remarks: '是否跳过权限检查', afterColumn: 'is_failed')
+        }
+    }
+
+    changeSet(author: 'n1ck', id: '2018-12-12-set-default-for-is_skip_check_permission') {
+        // remarks: '为之前的is_skip_check_permission字段设置默认值'
+        sql("UPDATE devops_application da SET da.is_skip_check_permission = FALSE WHERE da.is_skip_check_permission IS NULL")
     }
 }

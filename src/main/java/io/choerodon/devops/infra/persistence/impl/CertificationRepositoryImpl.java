@@ -73,7 +73,7 @@ public class CertificationRepositoryImpl implements CertificationRepository {
     }
 
     @Override
-    public Page<CertificationDTO> page(Long projectId, Long envId, PageRequest pageRequest, String params) {
+    public Page<CertificationDTO> page(Long projectId, Long organizationId, Long envId, PageRequest pageRequest, String params) {
         Map<String, Object> maps = gson.fromJson(params, new TypeToken<Map<String, Object>>() {
         }.getType());
         if (pageRequest.getSort() != null) {
@@ -88,7 +88,7 @@ public class CertificationRepositoryImpl implements CertificationRepository {
         String param = TypeUtil.cast(maps.get(TypeUtil.PARAM));
         Page<CertificationDTO> certificationDTOPage = ConvertPageHelper.convertPage(
                 PageHelper.doPageAndSort(pageRequest, () -> devopsCertificationMapper
-                        .selectCertification(projectId, envId, searchParamMap, param)),
+                        .selectCertification(projectId, organizationId, envId, searchParamMap, param)),
                 CertificationDTO.class);
 
         // check if cert is overdue
@@ -107,6 +107,7 @@ public class CertificationRepositoryImpl implements CertificationRepository {
         List<Long> connectedEnvList = envUtil.getConnectedEnvList(envListener);
         List<Long> updatedEnvList = envUtil.getUpdatedEnvList(envListener);
         certificationDTOPage.getContent().stream()
+                .filter(certificationDTO -> certificationDTO.getOrganizationId() == null)
                 .forEach(certificationDTO -> {
                     DevopsEnvironmentE devopsEnvironmentE = devopsEnvironmentRepository.queryById(certificationDTO.getEnvId());
                     certificationDTO.setEnvConnected(
@@ -168,7 +169,10 @@ public class CertificationRepositoryImpl implements CertificationRepository {
 
     @Override
     public void deleteById(Long id) {
-        deleteCertFile(id);
+        CertificationDO certificationDO = devopsCertificationMapper.selectByPrimaryKey(id);
+        if (certificationDO.getOrgCertId() == null) {
+            deleteCertFile(id);
+        }
         devopsCertificationMapper.deleteByPrimaryKey(id);
     }
 
@@ -194,6 +198,31 @@ public class CertificationRepositoryImpl implements CertificationRepository {
         CertificationDO certificationDO = new CertificationDO();
         certificationDO.setEnvId(envId);
         return ConvertHelper.convertList(devopsCertificationMapper.select(certificationDO), CertificationE.class);
+    }
+
+    @Override
+    public void updateSkipProjectPermission(CertificationE certificationE) {
+        devopsCertificationMapper.updateSkipCheckPro(certificationE.getId(), certificationE.getSkipCheckProjectPermission());
+    }
+
+    @Override
+    public CertificationE queryByOrgAndName(Long orgId, String name) {
+        CertificationDO certificationDO = new CertificationDO();
+        certificationDO.setName(name);
+        certificationDO.setOrganizationId(orgId);
+        return ConvertHelper.convert(devopsCertificationMapper.selectOne(certificationDO), CertificationE.class);
+    }
+
+    @Override
+    public List<CertificationE> listByOrgCertId(Long orgCertId) {
+        CertificationDO certificationDO = new CertificationDO();
+        certificationDO.setOrgCertId(orgCertId);
+        return ConvertHelper.convertList(devopsCertificationMapper.select(certificationDO), CertificationE.class);
+    }
+
+    @Override
+    public List<CertificationDTO> listByProject(Long projectId, Long organizationId) {
+        return ConvertHelper.convertList(devopsCertificationMapper.listByProjectId(projectId, organizationId), CertificationDTO.class);
     }
 
     private void deleteCertFile(Long certId) {

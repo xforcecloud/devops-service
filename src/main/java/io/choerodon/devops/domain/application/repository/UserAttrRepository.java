@@ -1,5 +1,7 @@
 package io.choerodon.devops.domain.application.repository;
 
+import java.util.List;
+
 import io.choerodon.devops.domain.application.entity.UserAttrE;
 
 /**
@@ -12,4 +14,14 @@ public interface UserAttrRepository {
     UserAttrE queryById(Long id);
 
     Long queryUserIdByGitlabUserId(Long gitLabUserId);
+
+    List<UserAttrE> listByUserIds(List<Long> userIds);
+
+    UserAttrE queryByGitlabUserId(Long gitlabUserId);
+
+    void update(UserAttrE userAttrE);
+
+    List<UserAttrE> list();
+
+    UserAttrE queryByGitlabUserName(String gitlabUserName);
 }

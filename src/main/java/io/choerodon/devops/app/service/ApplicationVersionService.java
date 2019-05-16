@@ -62,9 +62,7 @@ public interface ApplicationVersionService {
      * @param searchParam 模糊搜索参数
      * @return ApplicationVersionRepDTO
      */
-    Page<ApplicationVersionRepDTO> listApplicationVersionInApp(Long projectId,
-                                                               Long appId,
-                                                               PageRequest pageRequest,
+    Page<ApplicationVersionRepDTO> listApplicationVersionInApp(Long projectId, Long appId, PageRequest pageRequest,
                                                                String searchParam);
 
     /**
@@ -72,6 +70,18 @@ public interface ApplicationVersionService {
      */
     List<ApplicationVersionRepDTO> getUpgradeAppVersion(Long projectId, Long appVersionId);
 
-
+    /**
+     * 项目下查询应用最新的版本和各环境下部署的版本
+     *
+     * @param appId 应用ID
+     * @return DeployVersionDTO
+     */
     DeployVersionDTO listDeployVersions(Long appId);
+
+
+    String queryVersionValue(Long appVersionId);
+
+    ApplicationVersionRepDTO queryById(Long appVersionId);
+
+    List<ApplicationVersionRepDTO> listByAppVersionIds(List<Long> appVersionIds);
 }

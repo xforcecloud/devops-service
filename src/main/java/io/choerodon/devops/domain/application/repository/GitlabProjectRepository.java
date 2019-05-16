@@ -34,5 +34,9 @@ public interface GitlabProjectRepository {
 
     GitlabMemberE getProjectMember(Integer projectId, Integer userId);
 
+    void deleteBranch(Integer projectId, String branchName, Integer userId);
+
+    List<GitlabMemberE> getAllMemberByProjectId(Integer projectId);
+
     void initMockService(GitlabServiceClient gitlabServiceClient);
 }

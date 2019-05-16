@@ -3,6 +3,7 @@ package io.choerodon.devops.app.service.impl;
 import java.util.List;
 
 import com.google.gson.Gson;
+import io.choerodon.core.iam.ResourceLevel;
 import org.eclipse.jgit.api.Git;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -80,8 +81,6 @@ public class ApplicationTemplateServiceImpl implements ApplicationTemplateServic
     @Autowired
     private GitlabUserRepository gitlabUserRepository;
     @Autowired
-    private DevopsProjectRepository devopsProjectRepository;
-    @Autowired
     private DevopsGitRepository devopsGitRepository;
 
     @Autowired
@@ -90,7 +89,7 @@ public class ApplicationTemplateServiceImpl implements ApplicationTemplateServic
 
     @Override
     @Saga(code = "devops-create-gitlab-template-project",
-            description = "devops create GitLab template project", inputSchema = "{}")
+            description = "devops创建gitlab模板项目", inputSchema = "{}")
     public ApplicationTemplateRepDTO create(ApplicationTemplateDTO applicationTemplateDTO, Long organizationId) {
         ApplicationTemplateValidator.checkApplicationTemplate(applicationTemplateDTO);
         ApplicationTemplateE applicationTemplateE = ConvertHelper.convert(
@@ -101,6 +100,8 @@ public class ApplicationTemplateServiceImpl implements ApplicationTemplateServic
         UserAttrE userAttrE = userAttrRepository.queryById(TypeUtil.objToLong(GitUserNameUtil.getUserId()));
         Organization organization = iamRepository.queryOrganizationById(organizationId);
         applicationTemplateE.initOrganization(organization.getId());
+        applicationTemplateE.setSynchro(false);
+        applicationTemplateE.setFailed(false);
         GitlabGroupE gitlabGroupE = gitlabRepository.queryGroupByName(
                 organization.getCode() + "_" + TEMPLATE, TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
         if (gitlabGroupE == null) {
@@ -124,7 +125,7 @@ public class ApplicationTemplateServiceImpl implements ApplicationTemplateServic
             throw new CommonException("error.applicationTemplate.insert");
         }
         String input = gson.toJson(gitlabProjectPayload);
-        sagaClient.startSaga("devops-create-gitlab-template-project", new StartInstanceDTO(input, "", ""));
+        sagaClient.startSaga("devops-create-gitlab-template-project", new StartInstanceDTO(input, "", "", ResourceLevel.ORGANIZATION.value(), organizationId));
 
         return ConvertHelper.convert(applicationTemplateRepository.queryByCode(organization.getId(),
                 applicationTemplateDTO.getCode()), ApplicationTemplateRepDTO.class);
@@ -206,7 +207,6 @@ public class ApplicationTemplateServiceImpl implements ApplicationTemplateServic
 
         applicationTemplateE.initGitlabProjectE(
                 TypeUtil.objToInteger(gitlabProjectPayload.getGitlabProjectId()));
-        applicationTemplateRepository.update(applicationTemplateE);
         String applicationDir = gitlabProjectPayload.getType() + System.currentTimeMillis();
         if (applicationTemplateE.getCopyFrom() != null) {
             ApplicationTemplateRepDTO templateRepDTO = ConvertHelper.convert(applicationTemplateRepository
@@ -221,7 +221,8 @@ public class ApplicationTemplateServiceImpl implements ApplicationTemplateServic
             }
             Git git = gitUtil.clone(applicationDir, type, repoUrl);
 
-            String accessToken = getToken(gitlabProjectPayload, applicationDir);
+            UserAttrE userAttrE = userAttrRepository.queryByGitlabUserId(TypeUtil.objToLong(gitlabProjectPayload.getUserId()));
+            String accessToken = getToken(gitlabProjectPayload, applicationDir, userAttrE);
 
             GitlabUserE gitlabUserE = gitlabUserRepository.getGitlabUserByUserId(gitlabProjectPayload.getUserId());
             repoUrl = applicationTemplateE.getRepoUrl();
@@ -243,17 +244,21 @@ public class ApplicationTemplateServiceImpl implements ApplicationTemplateServic
                         gitlabProjectPayload.getUserId());
             }
         }
+        applicationTemplateE.setSynchro(true);
+        applicationTemplateRepository.update(applicationTemplateE);
     }
 
-    private String getToken(GitlabProjectPayload gitlabProjectPayload, String applicationDir) {
-//        List<String> tokens = gitlabRepository.listTokenByUserId(gitlabProjectPayload.getGitlabProjectId(),
-//                applicationDir, gitlabProjectPayload.getUserId());
+    private String getToken(GitlabProjectPayload gitlabProjectPayload, String applicationDir, UserAttrE userAttrE) {
+//        String accessToken = userAttrE.getGitlabToken();
+//        if (accessToken == null) {
+//            accessToken = gitlabRepository.createToken(gitlabProjectPayload.getGitlabProjectId(),
+//                    applicationDir, gitlabProjectPayload.getUserId());
+//            userAttrE.setGitlabToken(accessToken);
+//            userAttrRepository.update(userAttrE);
+//        }
         List<String> tokens = devopsGitlabPersonalTokensRepository.listTokenByUserId(gitlabProjectPayload.getGitlabProjectId(),
                 applicationDir, gitlabProjectPayload.getUserId());
         String accessToken;
-//        accessToken = tokens.isEmpty() ? gitlabRepository.createToken(gitlabProjectPayload.getGitlabProjectId(),
-//                applicationDir, gitlabProjectPayload.getUserId()) : tokens.get(tokens.size() - 1);
-
         accessToken = tokens.isEmpty() ? devopsGitlabPersonalTokensRepository.createToken(gitlabProjectPayload.getGitlabProjectId(),
                 applicationDir, gitlabProjectPayload.getUserId(), gitlabProjectPayload.getUserId()) : tokens.get(tokens.size() - 1);
         return accessToken;
@@ -287,6 +292,13 @@ public class ApplicationTemplateServiceImpl implements ApplicationTemplateServic
     @Override
     public Boolean applicationTemplateExist(String uuid) {
         return applicationTemplateRepository.applicationTemplateExist(uuid);
+    }
+
+    @Override
+    @Saga(code = "devops-set-appTemplate-err",
+            description = "Devops设置创建应用模板状态失败", inputSchema = "{}")
+    public void setAppTemplateErrStatus(String input, Long organizationId) {
+        sagaClient.startSaga("devops-set-appTemplate-err", new StartInstanceDTO(input, "", "", ResourceLevel.ORGANIZATION.value(), organizationId));
     }
 
     @Override

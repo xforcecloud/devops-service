@@ -29,10 +29,8 @@ public interface ApplicationVersionRepository {
 
     void updatePublishLevelByIds(List<Long> appVersionIds, Long level);
 
-    Page<ApplicationVersionE> listApplicationVersionInApp(Long projectId,
-                                                          Long appId,
-                                                          PageRequest pageRequest,
-                                                          String searchParam);
+    Page<ApplicationVersionE> listApplicationVersionInApp(Long projectId, Long appId, PageRequest pageRequest,
+                                                          String searchParam, Boolean isProjectOwner, Long userId);
 
     List<ApplicationVersionE> listAllPublishedVersion(Long applicationId);
 
@@ -51,4 +49,6 @@ public interface ApplicationVersionRepository {
     ApplicationVersionE queryByCommitSha(String sha);
 
     ApplicationVersionE getLatestVersion(Long appId);
+
+    List<ApplicationVersionE> listByAppVersionIds(List<Long> appVersionIds);
 }

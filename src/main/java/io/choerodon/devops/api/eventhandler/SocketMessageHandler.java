@@ -24,12 +24,10 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
 
     private DeployMsgHandlerService deployMsgHandlerService;
 
-
     @Autowired
     public SocketMessageHandler(DeployMsgHandlerService deployMsgHandlerService) {
         this.deployMsgHandlerService = deployMsgHandlerService;
     }
-
 
     @Override
     public void process(Msg msg) {
@@ -190,16 +188,26 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
             case UPGRADE_CLUSTER:
                 deployMsgHandlerService.upgradeCluster(msg.getKey(), msg.getPayload());
                 break;
+            case TEST_POD_UPDATE:
+                deployMsgHandlerService.testPodUpdate(msg.getKey(), msg.getPayload(), TypeUtil.objToLong(msg.getClusterId()));
+                break;
+            case TEST_JOB_LOG:
+                deployMsgHandlerService.testJobLog(msg.getKey(), msg.getPayload(), TypeUtil.objToLong(msg.getClusterId()));
+                break;
+            case TEST_STATUS_RESPONSE:
+                deployMsgHandlerService.getTestAppStatus(msg.getKey(), msg.getPayload(), TypeUtil.objToLong(msg.getClusterId()));
+                break;
+            case CERT_MANAGER_INFO:
+                deployMsgHandlerService.getCertManagerInfo(msg.getPayload(), TypeUtil.objToLong(msg.getClusterId()));
+                break;
             default:
                 msg.setDispatch(false);
                 break;
         }
-
     }
 
     @Override
     public int getOrder() {
         return 0;
     }
-
 }

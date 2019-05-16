@@ -5,12 +5,12 @@ import java.util.List;
 import io.choerodon.core.domain.Page;
 import io.choerodon.devops.api.dto.RoleAssignmentSearchDTO;
 import io.choerodon.devops.api.dto.iam.ProjectWithRoleDTO;
-import io.choerodon.devops.api.dto.iam.RoleDTO;
 import io.choerodon.devops.api.dto.iam.UserDTO;
 import io.choerodon.devops.api.dto.iam.UserWithRoleDTO;
 import io.choerodon.devops.domain.application.entity.ProjectE;
 import io.choerodon.devops.domain.application.entity.iam.UserE;
 import io.choerodon.devops.domain.application.valueobject.Organization;
+import io.choerodon.devops.infra.dataobject.iam.ProjectDO;
 import io.choerodon.devops.infra.feign.IamServiceClient;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
 
@@ -29,9 +29,7 @@ public interface IamRepository {
 
     List<ProjectE> listIamProjectByOrgId(Long organizationId, String name, String[] params);
 
-    UserE queryById(Long id);
-
-    UserE queryByProjectAndId(Long projectId, Long id);
+    Page<ProjectDO> queryProjectByOrgId(Long organizationId, int page, int size, String name, String[] params);
 
     List<UserE> listUsersByIds(List<Long> ids);
 
@@ -39,17 +37,19 @@ public interface IamRepository {
 
     UserE queryByEmail(Long projectId, String email);
 
-    List<RoleDTO> listRolesWithUserCountOnProjectLevel(Long projectId, RoleAssignmentSearchDTO roleAssignmentSearchDTO);
-
     Page<UserDTO> pagingQueryUsersByRoleIdOnProjectLevel(PageRequest pageRequest,
                                                          RoleAssignmentSearchDTO roleAssignmentSearchDTO, Long roleId,
                                                          Long projectId, Boolean doPage);
 
-    Page<UserWithRoleDTO> queryUserPermissionByProjectId(Long projectId, PageRequest pageRequest, Boolean doPage, String searchParams);
+    Page<UserWithRoleDTO> queryUserPermissionByProjectId(Long projectId, PageRequest pageRequest, Boolean doPage);
 
     List<ProjectWithRoleDTO> listProjectWithRoleDTO(Long userId);
 
-    Page<RoleDTO> queryRoleIdByCode(String roleCode);
+    Long queryRoleIdByCode(String roleCode);
+
+    List<Long> getAllMemberIdsWithoutOwner(Long projectId);
+
+    Boolean isProjectOwner(Long userId, ProjectE projectE);
 
     void initMockIamService(IamServiceClient iamServiceClient);
 }

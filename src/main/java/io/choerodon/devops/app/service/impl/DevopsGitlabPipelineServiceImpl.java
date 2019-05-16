@@ -58,7 +58,7 @@ public class DevopsGitlabPipelineServiceImpl implements DevopsGitlabPipelineServ
     private SagaClient sagaClient;
 
     @Override
-    @Saga(code = "devops-gitlab-pipeline", description = "gitlab-pipeline", inputSchemaClass = PipelineWebHookDTO.class)
+    @Saga(code = "devops-gitlab-pipeline", description = "gitlab pipeline创建到数据库", inputSchemaClass = PipelineWebHookDTO.class)
     public void create(PipelineWebHookDTO pipelineWebHookDTO, String token) {
         pipelineWebHookDTO.setToken(token);
         ApplicationE applicationE = applicationRepository.queryByToken(token);
@@ -79,14 +79,10 @@ public class DevopsGitlabPipelineServiceImpl implements DevopsGitlabPipelineServ
         if ("admin1".equals(pipelineWebHookDTO.getUser().getUsername()) || "root".equals(pipelineWebHookDTO.getUser().getUsername())) {
             pipelineWebHookDTO.getUser().setUsername("admin");
         }
-        UserE userE = iamRepository.queryByLoginName(pipelineWebHookDTO.getUser().getUsername());
         Integer gitlabUserId = ADMIN;
-
-        if (userE.getId() != null) {
-            UserAttrE userAttrE = userAttrRepository.queryById(userE.getId());
-            if (userAttrE != null) {
-                gitlabUserId = TypeUtil.objToInteger(userAttrE.getGitlabUserId());
-            }
+        UserAttrE userAttrE = userAttrRepository.queryByGitlabUserName(pipelineWebHookDTO.getUser().getUsername());
+        if (userAttrE != null) {
+            gitlabUserId = TypeUtil.objToInteger(userAttrE.getGitlabUserId());
         }
         //查询pipeline最新阶段信息
 
@@ -101,19 +97,19 @@ public class DevopsGitlabPipelineServiceImpl implements DevopsGitlabPipelineServ
             if (gitlabJobIds.contains(commitStatuseDO.getId())) {
                 Stage stage = getPipelibeStage(commitStatuseDO);
                 stages.add(stage);
-            } else if (commitStatuseDO.getName().equals("sonarqube") && !stageNames.contains("sonarqube")&& stages.size() > 0) {
+            } else if (commitStatuseDO.getName().equals("sonarqube") && !stageNames.contains("sonarqube") && !stages.isEmpty()) {
                 Stage stage = getPipelibeStage(commitStatuseDO);
                 stages.add(stage);
                 stageNames.add(commitStatuseDO.getName());
             }
         });
-        DevopsGitlabCommitE devopsGitlabCommitE = devopsGitlabCommitRepository.queryByShaAndRef(pipelineWebHookDTO.getObjectAttributes().getSha(),pipelineWebHookDTO.getObjectAttributes().getRef());
+        DevopsGitlabCommitE devopsGitlabCommitE = devopsGitlabCommitRepository.queryByShaAndRef(pipelineWebHookDTO.getObjectAttributes().getSha(), pipelineWebHookDTO.getObjectAttributes().getRef());
 
         //pipeline不存在则创建,存在则更新状态和阶段信息
         if (devopsGitlabPipelineE == null) {
             devopsGitlabPipelineE = new DevopsGitlabPipelineE();
             devopsGitlabPipelineE.setAppId(applicationE.getId());
-            devopsGitlabPipelineE.setPipelineCreateUserId(userE.getId() == null ? null : userE.getId());
+            devopsGitlabPipelineE.setPipelineCreateUserId(userAttrE == null ? null : userAttrE.getIamUserId());
             devopsGitlabPipelineE.setPipelineId(pipelineWebHookDTO.getObjectAttributes().getId());
             devopsGitlabPipelineE.setStatus(pipelineWebHookDTO.getObjectAttributes().getStatus());
             devopsGitlabPipelineE.setPipelineCreationDate(pipelineWebHookDTO.getObjectAttributes().getCreatedAt());

@@ -28,6 +28,8 @@ import io.choerodon.devops.domain.application.entity.*;
 import io.choerodon.devops.domain.application.repository.*;
 import io.choerodon.devops.domain.application.valueobject.Organization;
 import io.choerodon.devops.infra.common.util.FileUtil;
+import io.choerodon.devops.infra.common.util.GitUserNameUtil;
+import io.choerodon.devops.infra.common.util.TypeUtil;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
 
 /**
@@ -53,10 +55,11 @@ public class ApplicationVersionServiceImpl implements ApplicationVersionService 
     private DevopsEnvironmentRepository devopsEnvironmentRepository;
     @Autowired
     private DevopsEnvCommandRepository devopsEnvCommandRepository;
+    @Autowired
+    private UserAttrRepository userAttrRepository;
 
     @Value("${services.helm.url}")
     private String helmUrl;
-
 
     @Override
     public void create(String image, String token, String version, String commit, MultipartFile files) {
@@ -141,8 +144,11 @@ public class ApplicationVersionServiceImpl implements ApplicationVersionService 
 
     @Override
     public Page<ApplicationVersionRepDTO> listApplicationVersionInApp(Long projectId, Long appId, PageRequest pageRequest, String searchParam) {
+        UserAttrE userAttrE = userAttrRepository.queryById(TypeUtil.objToLong(GitUserNameUtil.getUserId()));
+        ProjectE projectE = iamRepository.queryIamProject(projectId);
+        Boolean isProjectOwner = iamRepository.isProjectOwner(userAttrE.getIamUserId(), projectE);
         Page<ApplicationVersionE> applicationVersionEPage = applicationVersionRepository.listApplicationVersionInApp(
-                projectId, appId, pageRequest, searchParam);
+                projectId, appId, pageRequest, searchParam, isProjectOwner, userAttrE.getIamUserId());
         return ConvertPageHelper.convertPage(applicationVersionEPage, ApplicationVersionRepDTO.class);
     }
 
@@ -193,5 +199,22 @@ public class ApplicationVersionServiceImpl implements ApplicationVersionService 
             }
         }
         return deployVersionDTO;
+    }
+
+    @Override
+    public String queryVersionValue(Long appVersionId) {
+        ApplicationVersionE applicationVersionE = applicationVersionRepository.query(appVersionId);
+        ApplicationVersionValueE applicationVersionValueE = applicationVersionValueRepository.query(applicationVersionE.getApplicationVersionValueE().getId());
+        return applicationVersionValueE.getValue();
+    }
+
+    @Override
+    public ApplicationVersionRepDTO queryById(Long appVersionId) {
+        return ConvertHelper.convert(applicationVersionRepository.query(appVersionId), ApplicationVersionRepDTO.class);
+    }
+
+    @Override
+    public List<ApplicationVersionRepDTO> listByAppVersionIds(List<Long> appVersionIds) {
+        return ConvertHelper.convertList(applicationVersionRepository.listByAppVersionIds(appVersionIds), ApplicationVersionRepDTO.class);
     }
 }

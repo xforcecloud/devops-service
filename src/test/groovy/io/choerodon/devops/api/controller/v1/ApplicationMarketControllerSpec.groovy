@@ -1,6 +1,9 @@
 package io.choerodon.devops.api.controller.v1
 
 import io.choerodon.core.domain.Page
+import io.choerodon.core.exception.CommonException
+import io.choerodon.core.exception.ExceptionResponse
+import io.choerodon.devops.ExportOctetStream2HttpMessageConverter
 import io.choerodon.devops.IntegrationTestConfiguration
 import io.choerodon.devops.api.dto.AppMarketDownloadDTO
 import io.choerodon.devops.api.dto.AppMarketTgzDTO
@@ -30,6 +33,8 @@ import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Stepwise
 import spock.lang.Subject
+
+import javax.servlet.http.HttpServletResponse
 
 import static org.mockito.Matchers.*
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT
@@ -145,13 +150,13 @@ class ApplicationMarketControllerSpec extends Specification {
         projectDO.setCode("pro")
         projectDO.setOrganizationId(1L)
         ResponseEntity<ProjectDO> responseEntity = new ResponseEntity<>(projectDO, HttpStatus.OK)
-        Mockito.doReturn(responseEntity).when(iamServiceClient).queryIamProject(1L)
+        Mockito.doReturn(responseEntity).when(iamServiceClient).queryIamProject(anyLong())
 
         OrganizationDO organizationDO = new OrganizationDO()
         organizationDO.setId(1L)
         organizationDO.setCode("org")
         ResponseEntity<OrganizationDO> responseEntity1 = new ResponseEntity<>(organizationDO, HttpStatus.OK)
-        Mockito.doReturn(responseEntity1).when(iamServiceClient).queryOrganizationById(1L)
+        Mockito.doReturn(responseEntity1).when(iamServiceClient).queryOrganizationById(anyLong())
 
         Page<ProjectDO> projectDOPage = new Page<>()
         List<ProjectDO> projectDOList = new ArrayList<>()
@@ -295,7 +300,7 @@ class ApplicationMarketControllerSpec extends Specification {
         headers.setContentType(MediaType.parseMediaType("multipart/form-data"))
 
         MultiValueMap<String, Object> map = new LinkedMultiValueMap<String, Object>()
-        FileSystemResource fileSystemResource = new FileSystemResource("src/test/resources/chart.zip")
+        FileSystemResource fileSystemResource = new FileSystemResource("src/test/resources/charts.zip")
         map.add("file", fileSystemResource)
         map.add("filename", fileSystemResource.getFilename())
 
@@ -310,7 +315,6 @@ class ApplicationMarketControllerSpec extends Specification {
 
     def "ImportApps"() {
         given: '获取文件名'
-        // File file = new File("chart.zip")
         String fileName = "59027735aa121f3befb8cc9f7684b62e"
 
         when: '应用市场导入应用'
@@ -342,10 +346,20 @@ class ApplicationMarketControllerSpec extends Specification {
         appMarketDownloadDTO.setAppVersionIds(appVersionList)
         dtoList.add(appMarketDownloadDTO)
 
+        and: '设置http响应返回值类型'
+        restTemplate.getRestTemplate().getMessageConverters().add(new ExportOctetStream2HttpMessageConverter())
+        HttpHeaders headers = new HttpHeaders()
+        List headersList = new ArrayList<>()
+        headersList.add(MediaType.APPLICATION_OCTET_STREAM)
+        headers.setAccept(headersList)
+
+        HttpEntity<List<AppMarketDownloadDTO>> reqHttpEntity = new HttpEntity<>(dtoList)
+
         when: '导出应用市场应用信息'
-        restTemplate.postForObject("/v1/projects/1/apps_market/export", dtoList, Object.class)
+        ResponseEntity<byte[]> responseEntity = restTemplate.exchange("/v1/projects/1/apps_market/export?fileName=testChart", HttpMethod.POST, reqHttpEntity, byte[].class)
 
         then: '验证返回值'
+        responseEntity.getHeaders().get("Content-Length").get(0).toString().toInteger() != 0
 
         // 删除app
         List<ApplicationDO> list = applicationMapper.selectAll()

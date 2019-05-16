@@ -98,19 +98,21 @@
         SELECT
         dai.id id,
         dai.`code` CODE,
-        dai.app_version_id appVersionId ,
-        dav.version appVersion
+        dav.version appVersion,
+        dav.id appVersionId
         FROM
         devops_app_instance dai,
         devops_application da,
         devops_env de,
-        devops_app_version dav
+        devops_app_version dav,
+        devops_env_command dc
         WHERE
         dai.app_id = da.id
+        AND dai.command_id = dc.id
         AND dai.env_id = de.id
         AND dai.`status` in ('running','failed')
         AND de.project_id = #{projectId}
-        AND dai.app_version_id = dav.id
+        AND dc.object_version_id= dav.id
         <if test="envId != null">
             AND dai.env_id = #{envId}
         </if>
@@ -133,8 +135,8 @@
         <if test="appId != null">
             AND dai.app_id = #{appId}
         </if>
-        <if test="appInstanceId != null">
-            AND dai.id = #{appInstanceId}
+        <if test="appInstanceCode != null">
+            AND dai.code = #{appInstanceCode}
         </if>
     </select>
 
@@ -381,5 +383,15 @@
             </foreach>
         </if>
         order by cmd.creation_date DESC
+    </select>
+
+    <select id="getInstanceDeploymentDetailJsonByInstanceId" resultType="java.lang.String">
+        SELECT detail.message
+        FROM devops_app_instance ins
+        INNER JOIN devops_env_resource re ON ins.id = re.app_instance_id
+        INNER JOIN devops_env_resource_detail detail ON re.resource_detail_id = detail.id
+        WHERE ins.id = #{instanceId}
+        AND re.kind = 'Deployment'
+        AND re.name = #{deploymentName};
     </select>
 </mapper>

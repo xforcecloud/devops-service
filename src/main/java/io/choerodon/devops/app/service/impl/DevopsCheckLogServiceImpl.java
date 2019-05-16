@@ -9,13 +9,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
-import com.zaxxer.hikari.util.DefaultThreadFactory;
+import com.zaxxer.hikari.util.UtilityElf;
 import feign.FeignException;
 import io.kubernetes.client.custom.IntOrString;
 import io.kubernetes.client.models.*;
@@ -37,16 +38,14 @@ import io.choerodon.asgard.saga.annotation.Saga;
 import io.choerodon.asgard.saga.dto.StartInstanceDTO;
 import io.choerodon.asgard.saga.feign.SagaClient;
 import io.choerodon.core.domain.Page;
+import io.choerodon.core.iam.ResourceLevel;
 import io.choerodon.devops.api.dto.iam.UserWithRoleDTO;
 import io.choerodon.devops.app.service.ApplicationInstanceService;
 import io.choerodon.devops.app.service.DevopsCheckLogService;
 import io.choerodon.devops.app.service.DevopsEnvironmentService;
 import io.choerodon.devops.app.service.DevopsIngressService;
 import io.choerodon.devops.domain.application.entity.*;
-import io.choerodon.devops.domain.application.entity.gitlab.GitlabGroupE;
-import io.choerodon.devops.domain.application.entity.gitlab.GitlabJobE;
-import io.choerodon.devops.domain.application.entity.gitlab.GitlabMemberE;
-import io.choerodon.devops.domain.application.entity.gitlab.GitlabPipelineE;
+import io.choerodon.devops.domain.application.entity.gitlab.*;
 import io.choerodon.devops.domain.application.entity.iam.UserE;
 import io.choerodon.devops.domain.application.event.GitlabProjectPayload;
 import io.choerodon.devops.domain.application.repository.*;
@@ -76,10 +75,12 @@ import io.choerodon.mybatis.pagehelper.domain.PageRequest;
 @Service
 public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
 
-    public static final String APP = "app: ";
+    private static final String SONARQUBE = "sonarqube";
+    private static final String TWELVE_VERSION = "0.12.0";
+    private static final String APP = "app: ";
     private static final Integer ADMIN = 1;
     private static final String ENV = "ENV";
-    private static final String SERVICE_LABLE = "choerodon.io/network";
+    private static final String SERVICE_LABEL = "choerodon.io/network";
     private static final String PROJECT_OWNER = "role/project/default/project-owner";
     private static final String SERVICE = "service";
     private static final String SUCCESS = "success";
@@ -87,12 +88,11 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
     private static final String SERIAL_STRING = " serializable to yaml";
     private static final String YAML_FILE = ".yaml";
     private static final Logger LOGGER = LoggerFactory.getLogger(DevopsCheckLogServiceImpl.class);
-
     private static final ExecutorService executorService = new ThreadPoolExecutor(0, 1,
             0L, TimeUnit.MILLISECONDS,
-            new LinkedBlockingQueue<>(), new DefaultThreadFactory("devops-upgrade", false));
-
+            new LinkedBlockingQueue<>(), new UtilityElf.DefaultThreadFactory("devops-upgrade", false));
     private static io.kubernetes.client.JSON json = new io.kubernetes.client.JSON();
+    private static final String SERVICE_PATTERN = "[a-zA-Z0-9_\\.][a-zA-Z0-9_\\-\\.]*[a-zA-Z0-9_\\-]|[a-zA-Z0-9_]";
     private Gson gson = new Gson();
 
     @Value("${services.gateway.url}")
@@ -156,18 +156,13 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
     private DevopsProjectMapper devopsProjectMapper;
     @Autowired
     private GitlabGroupMemberRepository gitlabGroupMemberRepository;
+    @Autowired
+    private GitlabUserRepository gitlabUserRepository;
 
     @Override
     public void checkLog(String version) {
         LOGGER.info("start upgrade task");
         executorService.submit(new UpgradeTask(version));
-    }
-
-
-    @Override
-    public void checkLogByEnv(String version, Long envId) {
-        LOGGER.info("start upgrade task on env {}", envId);
-        executorService.submit(new UpgradeTask(version, envId));
     }
 
 
@@ -269,7 +264,7 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
                                             .getId()));
                             devopsGitlabPipelineE.setPipelineCreateUserId(userId);
                             devopsGitlabPipelineE.setPipelineId(TypeUtil.objToLong(gitlabPipelineE.getId()));
-                            if (gitlabPipelineE.getStatus().toString().equals("success")) {
+                            if (gitlabPipelineE.getStatus().toString().equals(SUCCESS)) {
                                 devopsGitlabPipelineE.setStatus("passed");
                             } else {
                                 devopsGitlabPipelineE.setStatus(gitlabPipelineE.getStatus().toString());
@@ -299,16 +294,16 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
                                     .getCommitStatuse(applicationDO.getGitlabProjectId(), gitlabPipelineE.getSha(),
                                             ADMIN)
                                     .forEach(commitStatuseDO -> {
-                                if (gitlabJobIds.contains(commitStatuseDO.getId())) {
-                                    Stage stage = getPipelineStage(commitStatuseDO);
-                                    stages.add(stage);
-                                } else if (commitStatuseDO.getName().equals("sonarqube") && !stageNames
-                                        .contains("sonarqube") && !stages.isEmpty()) {
-                                    Stage stage = getPipelineStage(commitStatuseDO);
-                                    stages.add(stage);
-                                    stageNames.add(commitStatuseDO.getName());
-                                }
-                            });
+                                        if (gitlabJobIds.contains(commitStatuseDO.getId())) {
+                                            Stage stage = getPipelineStage(commitStatuseDO);
+                                            stages.add(stage);
+                                        } else if (commitStatuseDO.getName().equals(SONARQUBE) && !stageNames
+                                                .contains(SONARQUBE) && !stages.isEmpty()) {
+                                            Stage stage = getPipelineStage(commitStatuseDO);
+                                            stages.add(stage);
+                                            stageNames.add(commitStatuseDO.getName());
+                                        }
+                                    });
                             devopsGitlabPipelineE.setStage(JSONArray.toJSONString(stages));
                             devopsGitlabPipelineRepository.create(devopsGitlabPipelineE);
                         });
@@ -344,16 +339,16 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
                         gitlabProjectRepository.getCommitStatuse(applicationDO.getGitlabProjectId(),
                                 devopsGitlabCommitDO.getCommitSha(), ADMIN)
                                 .forEach(commitStatuseDO -> {
-                            if (gitlabJobIds.contains(commitStatuseDO.getId())) {
-                                Stage stage = getPipelineStage(commitStatuseDO);
-                                stages.add(stage);
-                            } else if (commitStatuseDO.getName().equals("sonarqube") && !stageNames
-                                    .contains("sonarqube") && !stages.isEmpty()) {
-                                Stage stage = getPipelineStage(commitStatuseDO);
-                                stages.add(stage);
-                                stageNames.add(commitStatuseDO.getName());
-                            }
-                        });
+                                    if (gitlabJobIds.contains(commitStatuseDO.getId())) {
+                                        Stage stage = getPipelineStage(commitStatuseDO);
+                                        stages.add(stage);
+                                    } else if (commitStatuseDO.getName().equals(SONARQUBE) && !stageNames
+                                            .contains(SONARQUBE) && !stages.isEmpty()) {
+                                        Stage stage = getPipelineStage(commitStatuseDO);
+                                        stages.add(stage);
+                                        stageNames.add(commitStatuseDO.getName());
+                                    }
+                                });
                         devopsGitlabPipelineDO.setStatus(gitlabPipelineE.getStatus().toString());
                         devopsGitlabPipelineDO.setStage(JSONArray.toJSONString(stages));
                         devopsGitlabPipelineMapper.updateByPrimaryKeySelective(devopsGitlabPipelineDO);
@@ -383,17 +378,17 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
         return stage;
     }
 
-    private void changeGitOpsUserAccess(List<CheckLog> logs) {
+    private void syncGitOpsUserAccess(List<CheckLog> logs, String version) {
         List<Long> projectIds = devopsProjectMapper.selectAll().stream().
                 filter(devopsProjectDO -> devopsProjectDO.getDevopsEnvGroupId() != null && devopsProjectDO
                         .getDevopsAppGroupId() != null).map(DevopsProjectDO::getIamProjectId)
                 .collect(Collectors.toList());
         projectIds.forEach(projectId -> {
-            PageRequest pageRequest = new PageRequest();
-
-            Page<UserWithRoleDTO> allProjectUser = iamRepository.queryUserPermissionByProjectId(projectId, pageRequest, false, null);
+            Page<UserWithRoleDTO> allProjectUser = iamRepository
+                    .queryUserPermissionByProjectId(projectId, new PageRequest(), false);
             if (!allProjectUser.getContent().isEmpty()) {
                 allProjectUser.forEach(userWithRoleDTO -> {
+                    // 如果是项目成员
                     if (userWithRoleDTO.getRoles().stream().noneMatch(roleDTO -> roleDTO.getCode().equals(PROJECT_OWNER))) {
                         CheckLog checkLog = new CheckLog();
                         checkLog.setContent(userWithRoleDTO.getLoginName() + ": remove env permission");
@@ -402,13 +397,20 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
                             if (userAttrE != null) {
                                 Integer gitlabUserId = TypeUtil.objToInteger(userAttrE.getGitlabUserId());
                                 GitlabGroupE gitlabGroupE = devopsProjectRepository.queryDevopsProject(projectId);
-                                GitlabMemberE groupMemberE = gitlabGroupMemberRepository.getUserMemberByUserId(
-                                        TypeUtil.objToInteger(gitlabGroupE.getDevopsEnvGroupId()),
-                                        gitlabUserId);
-                                if (groupMemberE != null) {
-                                    gitlabGroupMemberRepository.deleteMember(
-                                            TypeUtil.objToInteger(gitlabGroupE.getDevopsEnvGroupId()),
-                                            gitlabUserId);
+                                GitlabMemberE envgroupMemberE = gitlabGroupMemberRepository.getUserMemberByUserId(
+                                        TypeUtil.objToInteger(gitlabGroupE.getDevopsEnvGroupId()), gitlabUserId);
+                                GitlabMemberE appgroupMemberE = gitlabGroupMemberRepository.getUserMemberByUserId(
+                                        TypeUtil.objToInteger(gitlabGroupE.getDevopsAppGroupId()), gitlabUserId);
+                                if (version.equals(TWELVE_VERSION)) {
+                                    if (appgroupMemberE != null && appgroupMemberE.getId() != null) {
+                                        gitlabGroupMemberRepository.deleteMember(
+                                                TypeUtil.objToInteger(gitlabGroupE.getDevopsAppGroupId()), gitlabUserId);
+                                    }
+                                } else {
+                                    if (envgroupMemberE != null && envgroupMemberE.getId() != null) {
+                                        gitlabGroupMemberRepository.deleteMember(
+                                                TypeUtil.objToInteger(gitlabGroupE.getDevopsEnvGroupId()), gitlabUserId);
+                                    }
                                 }
                             }
                             checkLog.setResult(SUCCESS);
@@ -422,6 +424,35 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
                 });
             }
         });
+    }
+
+    private void syncGitlabUserName(List<CheckLog> logs) {
+        userAttrRepository.list().stream().filter(userAttrE -> userAttrE.getGitlabUserId() != null).forEach(userAttrE ->
+                {
+                    CheckLog checkLog = new CheckLog();
+                    try {
+                        UserE userE = iamRepository.queryUserByUserId(userAttrE.getIamUserId());
+                        if (Pattern.matches(SERVICE_PATTERN, userE.getLoginName())) {
+                            userAttrE.setGitlabUserName(userE.getLoginName());
+                            if (userE.getLoginName().equals("admin") || userE.getLoginName().equals("admin1")) {
+                                userAttrE.setGitlabUserName("root");
+                            }
+                        } else {
+                            GitlabUserE gitlabUserE = gitlabUserRepository.getGitlabUserByUserId(TypeUtil.objToInteger(userAttrE.getGitlabUserId()));
+                            userAttrE.setGitlabUserName(gitlabUserE.getUsername());
+                        }
+                        userAttrRepository.update(userAttrE);
+                        LOGGER.info(SUCCESS);
+                        checkLog.setResult(SUCCESS);
+                        checkLog.setContent(userAttrE.getGitlabUserId() + " : init Name Succeed");
+                    } catch (Exception e) {
+                        LOGGER.info(e.getMessage());
+                        checkLog.setResult(FAILED);
+                        checkLog.setContent(userAttrE.getGitlabUserId() + " : init Name Failed");
+                    }
+                    logs.add(checkLog);
+                }
+        );
     }
 
     private class SyncInstanceByEnv {
@@ -525,7 +556,7 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
             metadata.setName(devopsServiceE.getName());
             // metadata / labels
             Map<String, String> label = new HashMap<>();
-            label.put(SERVICE_LABLE, SERVICE);
+            label.put(SERVICE_LABEL, SERVICE);
             metadata.setLabels(label);
             // metadata / annotations
             if (devopsServiceE.getAnnotations() != null) {
@@ -569,8 +600,9 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
                 List<DevopsServiceAppInstanceE> devopsServiceAppInstanceES =
                         devopsServiceInstanceRepository.selectByServiceId(devopsServiceE.getId());
                 if (!devopsServiceAppInstanceES.isEmpty()) {
-                    DevopsEnvResourceE devopsEnvResourceE = devopsEnvResourceRepository.queryByInstanceIdAndKindAndName(
+                    DevopsEnvResourceE devopsEnvResourceE = devopsEnvResourceRepository.queryResource(
                             devopsServiceAppInstanceES.get(0).getAppInstanceId(),
+                            null, null,
                             ResourceType.SERVICE.getType(),
                             devopsServiceE.getName());
                     DevopsEnvResourceDetailE devopsEnvResourceDetailE = devopsEnvResourceDetailRepository
@@ -685,11 +717,11 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
             List<DevopsIngressPathE> devopsIngressPathES =
                     devopsIngressRepository.selectByIngressId(devopsIngressE.getId());
             devopsIngressPathES.forEach(devopsIngressPathE ->
-                            v1beta1Ingress.getSpec().getRules().get(0).getHttp()
-                                    .addPathsItem(devopsIngressService.createPath(
-                                            devopsIngressPathE.getPath(),
-                                            devopsIngressPathE.getServiceId(),
-                                            devopsIngressPathE.getServicePort())));
+                    v1beta1Ingress.getSpec().getRules().get(0).getHttp()
+                            .addPathsItem(devopsIngressService.createPath(
+                                    devopsIngressPathE.getPath(),
+                                    devopsIngressPathE.getServiceName(),
+                                    devopsIngressPathE.getServicePort())));
 
             return v1beta1Ingress;
         }
@@ -739,8 +771,11 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
             } else if ("0.10.4".equals(version)) {
                 fixPipelines(logs);
             } else if ("0.11.0".equals(version)) {
-                changeGitOpsUserAccess(logs);
+                syncGitOpsUserAccess(logs, "0.11.0");
                 updateWebHook(logs);
+            } else if (TWELVE_VERSION.equals(version)) {
+                syncGitOpsUserAccess(logs, TWELVE_VERSION);
+                syncGitlabUserName(logs);
             } else {
                 LOGGER.info("version not matched");
             }
@@ -875,8 +910,8 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
                             newDevopsBranchE.setCheckoutCommit(branchDO.getCommit().getId());
                             newDevopsBranchE.setCheckoutDate(branchDO.getCommit().getCommittedDate());
                             newDevopsBranchE.setLastCommitMsg(branchDO.getCommit().getMessage());
-                            UserE userE = iamRepository.queryByLoginName(branchDO.getCommit().getAuthorName());
-                            newDevopsBranchE.setLastCommitUser(userE.getId());
+                            UserAttrE userAttrE = userAttrRepository.queryByGitlabUserName(branchDO.getCommit().getAuthorName());
+                            newDevopsBranchE.setLastCommitUser(userAttrE.getIamUserId());
                             devopsGitRepository.createDevopsBranch(newDevopsBranchE);
                             checkLog.setResult(SUCCESS);
                         }));
@@ -888,12 +923,12 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
 
 
         @Saga(code = "devops-upgrade-0.9",
-                description = "devops smooth upgrade to 0.9", inputSchema = "{}")
+                description = "Devops平滑升级到0.9", inputSchema = "{}")
         private void gitOpsUserAccess() {
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(" saga start");
             }
-            sagaClient.startSaga("devops-upgrade-0.9", new StartInstanceDTO("{}", "", ""));
+            sagaClient.startSaga("devops-upgrade-0.9", new StartInstanceDTO("{}", "", "", ResourceLevel.SITE.value(), 0L));
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(" saga start success");
             }
