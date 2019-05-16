@@ -47,9 +47,13 @@ public class AgentInitConfig implements AgentConfigurer {
     }
 
     class AgentInitListener implements SessionListener {
+
+
         @Override
         public void onConnected(Session session) {
             try {
+                //just for test currently
+                session.getWebSocketSession().setTextMessageSizeLimit(81900);
                 Long clusterId = Long.valueOf(session.getRegisterKey().split(":")[1]);
                 deployService.initCluster(clusterId);
             } catch (Exception e) {
