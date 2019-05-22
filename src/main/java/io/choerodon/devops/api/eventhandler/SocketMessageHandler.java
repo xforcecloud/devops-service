@@ -1,5 +1,6 @@
 package io.choerodon.devops.api.eventhandler;
 
+import io.choerodon.devops.app.service.DeployMsgHandlerServiceEx;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,8 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
     private static final Logger logger = LoggerFactory.getLogger(SocketMessageHandler.class);
 
     private DeployMsgHandlerService deployMsgHandlerService;
+
+    private DeployMsgHandlerServiceEx deployMsgHandlerServiceEx;
 
 
     @Autowired
@@ -189,6 +192,14 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
                 break;
             case UPGRADE_CLUSTER:
                 deployMsgHandlerService.upgradeCluster(msg.getKey(), msg.getPayload());
+                break;
+            case RES_QUOTA_UPDATE:
+                deployMsgHandlerServiceEx.quotaUpdate(
+                        msg.getKey(), msg.getPayload(), TypeUtil.objToLong(msg.getClusterId()));
+                break;
+            case RES_QUOTA_REMOVED:
+                deployMsgHandlerServiceEx.quotaRemoved(
+                        msg.getKey(), msg.getPayload(), TypeUtil.objToLong(msg.getClusterId()));
                 break;
             default:
                 msg.setDispatch(false);
