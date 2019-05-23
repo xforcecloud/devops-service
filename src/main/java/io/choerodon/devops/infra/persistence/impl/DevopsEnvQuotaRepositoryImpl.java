@@ -22,9 +22,10 @@ public class DevopsEnvQuotaRepositoryImpl implements DevopsEnvQuotaRepository {
     @Override
     public int createOrUpdate(DevopsEnvQuotaDO devopsEnvResourceDO) {
 
-        devopsEnvResourceDO.getClusterId();
-        devopsEnvResourceDO.getEnvId();
-        DevopsEnvQuotaDO quota = mapper.selectOne(devopsEnvResourceDO);
+        String name    = devopsEnvResourceDO.getName();
+        Long envId     = devopsEnvResourceDO.getEnvId();
+        Long clusterId = devopsEnvResourceDO.getClusterId();
+        DevopsEnvQuotaDO quota = mapper.selectBy(name, clusterId, envId);
         if(quota != null){
             devopsEnvResourceDO.setId(quota.getId());
             mapper.updateByPrimaryKey(devopsEnvResourceDO);

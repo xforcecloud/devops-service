@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="io.choerodon.devops.infra.mapper.DevopsEnvQuotaMapper">
+
+       <select id="selectBy" resultType="io.choerodon.devops.infra.dataobject.DevopsEnvQuotaDO">
+        SELECT
+        *
+        FROM
+        devops_env_quota
+        WHERE
+        name = #{name}
+        AND
+        env_id = #{envId}
+        AND
+        cluster_id = #{clusterId}
+        order by  devops_env_quota.last_update_date desc
+
+    </select>
+</mapper>

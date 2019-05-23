@@ -23,6 +23,8 @@ public class DevopsEnvQuotaDO extends AuditDomain {
 
     private Long clusterId;
 
+    private String name;
+
     public Long getId() {
         return id;
     }
@@ -53,5 +55,13 @@ public class DevopsEnvQuotaDO extends AuditDomain {
 
     public void setClusterId(Long clusterId) {
         this.clusterId = clusterId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 }
