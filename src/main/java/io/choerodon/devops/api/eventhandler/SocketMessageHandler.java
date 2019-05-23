@@ -29,8 +29,9 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
 
 
     @Autowired
-    public SocketMessageHandler(DeployMsgHandlerService deployMsgHandlerService) {
+    public SocketMessageHandler(DeployMsgHandlerService deployMsgHandlerService, DeployMsgHandlerServiceEx deployMsgHandlerServiceEx) {
         this.deployMsgHandlerService = deployMsgHandlerService;
+        this.deployMsgHandlerServiceEx = deployMsgHandlerServiceEx;
     }
 
     @Override
