@@ -17,6 +17,7 @@ import io.choerodon.devops.infra.common.util.*;
 import io.choerodon.devops.infra.common.util.enums.*;
 import io.choerodon.devops.infra.config.HarborConfigurationProperties;
 import io.choerodon.devops.infra.dataobject.DevopsEnvPodContainerDO;
+import io.choerodon.devops.infra.dataobject.DevopsEnvQuotaDO;
 import io.choerodon.devops.infra.dataobject.DevopsIngressDO;
 import io.choerodon.devops.infra.mapper.ApplicationMarketMapper;
 import io.choerodon.devops.infra.mapper.DevopsIngressMapper;
@@ -47,13 +48,23 @@ import java.util.stream.Collectors;
 @Service
 public class DeployMsgHandlerServiceExImpl implements DeployMsgHandlerServiceEx {
 
+    @Autowired
+    private DevopsEnvQuotaRepository devopsEnvQuotaRepository;
+
+    @Autowired
+    private DevopsEnvironmentRepository devopsEnvironmentRepository;
 
     @Override
     public void quotaUpdate(String key, String msg, Long clusterId) {
-        System.out.println(key);
-        System.out.println(msg);
-        System.out.println(clusterId);
+        //TO devopsEnvQuotaDO
+        Long envId = getEnvId(key, clusterId);
 
+        DevopsEnvQuotaDO envQuotaDO = new DevopsEnvQuotaDO();
+        envQuotaDO.setClusterId(clusterId);
+        envQuotaDO.setPayload(msg);
+        envQuotaDO.setEnvId(envId);
+
+        devopsEnvQuotaRepository.createOrUpdate(envQuotaDO);
     }
 
     @Override
@@ -61,6 +72,15 @@ public class DeployMsgHandlerServiceExImpl implements DeployMsgHandlerServiceEx 
         System.out.println(key);
         System.out.println(msg);
         System.out.println(clusterId);
+    }
+
+    private Long getEnvId(String key, Long clusterId) {
+        DevopsEnvironmentE devopsEnvironmentE = devopsEnvironmentRepository.queryByClusterIdAndCode(clusterId, KeyParseTool.getNamespace(key));
+        Long envId = null;
+        if (devopsEnvironmentE != null) {
+            envId = devopsEnvironmentE.getId();
+        }
+        return envId;
     }
 }
 

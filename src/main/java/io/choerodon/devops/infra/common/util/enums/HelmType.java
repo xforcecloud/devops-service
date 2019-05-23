@@ -167,6 +167,10 @@ public enum HelmType {
                 return HelmType.UPGRADE_CLUSTER;
             case "namespace_update":
                 return HelmType.NAMESPACE_UPDATE;
+            case "resource_quota_update":
+                return HelmType.RES_QUOTA_UPDATE;
+            case "resource_quota_removed":
+                return HelmType.RES_QUOTA_REMOVED;
             default:
                 break;
         }

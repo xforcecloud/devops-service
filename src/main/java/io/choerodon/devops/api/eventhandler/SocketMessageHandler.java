@@ -33,7 +33,6 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
         this.deployMsgHandlerService = deployMsgHandlerService;
     }
 
-
     @Override
     public void process(Msg msg) {
         HelmType helmType = HelmType.forString(String.valueOf(msg.getType()));
