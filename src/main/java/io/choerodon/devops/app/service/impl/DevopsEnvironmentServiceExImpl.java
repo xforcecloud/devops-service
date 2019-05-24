@@ -311,10 +311,10 @@ public class DevopsEnvironmentServiceExImpl implements DevopsEnvironmentServiceE
                 }
 
                 if(used != null) {
-                    quotaDTO.setCpu(status.getUsed().getOrDefault("limits.cpu", defaultQuantity).getAmount());
-                    quotaDTO.setMem(status.getHard().getOrDefault("limits.memory", defaultQuantity).getAmount());
-                    quotaDTO.setPod(status.getHard().getOrDefault("pods", defaultQuantity).getAmount());
-                    quotaDTO.setSvc(status.getHard().getOrDefault("services", defaultQuantity).getAmount());
+                    quotaDTO.setCpu(used.getOrDefault("limits.cpu", defaultQuantity).getAmount());
+                    quotaDTO.setMem(used.getOrDefault("limits.memory", defaultQuantity).getAmount());
+                    quotaDTO.setPod(used.getOrDefault("pods", defaultQuantity).getAmount());
+                    quotaDTO.setSvc(used.getOrDefault("services", defaultQuantity).getAmount());
                 }
             }
         }catch(Exception ex){
