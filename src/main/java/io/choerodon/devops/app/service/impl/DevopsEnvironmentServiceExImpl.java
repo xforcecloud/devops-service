@@ -291,6 +291,8 @@ public class DevopsEnvironmentServiceExImpl implements DevopsEnvironmentServiceE
     private DevopsEnvQuotaDTO toDevopsEnvQuota(DevopsEnvQuotaDO quotaDo){
         DevopsEnvQuotaDTO quotaDTO = new DevopsEnvQuotaDTO();
         String payload = quotaDo.getPayload();
+        quotaDTO.setEnvId(quotaDo.getEnvId());
+        quotaDTO.setName(quotaDo.getName());
         try {
             ResourceQuota resourceQuota = objectMapper.readValue(payload, ResourceQuota.class);
             ResourceQuotaStatus status = resourceQuota.getStatus();
