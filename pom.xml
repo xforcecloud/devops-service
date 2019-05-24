@@ -215,6 +215,11 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>kubernetes-client</artifactId>
+            <version>4.1.0</version>
+        </dependency>
+        <dependency>
             <groupId>io.choerodon</groupId>
             <artifactId>choerodon-websocket-helper</artifactId>
             <version>0.7.1.RELEASE</version>

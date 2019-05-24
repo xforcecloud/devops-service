@@ -34,6 +34,9 @@ import io.choerodon.devops.infra.dataobject.DevopsEnvQuotaDO;
 import io.choerodon.devops.infra.dataobject.gitlab.GitlabProjectDO;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
 import io.choerodon.websocket.helper.EnvListener;
+import io.fabric8.kubernetes.api.model.Quantity;
+import io.fabric8.kubernetes.api.model.ResourceQuota;
+import io.fabric8.kubernetes.api.model.ResourceQuotaStatus;
 import io.kubernetes.client.proto.Resource;
 import io.kubernetes.client.proto.V1;
 import org.slf4j.Logger;
@@ -289,19 +292,29 @@ public class DevopsEnvironmentServiceExImpl implements DevopsEnvironmentServiceE
         DevopsEnvQuotaDTO quotaDTO = new DevopsEnvQuotaDTO();
         String payload = quotaDo.getPayload();
         try {
-            V1.ResourceQuota quota = JSONArray.parseObject(payload, V1.ResourceQuota.class);
-            V1.ResourceQuotaStatus status = quota.getStatus();
-            Resource.Quantity defaultQuantity = Resource.Quantity.newBuilder().setString("0").build();
+            ResourceQuota resourceQuota = objectMapper.readValue(payload, ResourceQuota.class);
+            ResourceQuotaStatus status = resourceQuota.getStatus();
 
-            quotaDTO.setCpuLimit(status.getHardOrDefault("limits.cpu", defaultQuantity).getString());
-            quotaDTO.setMemLimit(status.getHardOrDefault("limits.memory", defaultQuantity).getString());
-            quotaDTO.setPodLimit(status.getHardOrDefault("pods", defaultQuantity).getString());
-            quotaDTO.setSvcLimit(status.getHardOrDefault("services", defaultQuantity).getString());
+            if(status != null) {
+                Quantity defaultQuantity = new Quantity();
+                defaultQuantity.setAmount("0");
+                Map<String, Quantity> hard = status.getHard();
+                Map<String, Quantity> used = status.getUsed();
 
-            quotaDTO.setCpu(status.getUsedOrDefault("limits.cpu", defaultQuantity).getString());
-            quotaDTO.setMem(status.getUsedOrDefault("limits.memory", defaultQuantity).getString());
-            quotaDTO.setPod(status.getUsedOrDefault("pods", defaultQuantity).getString());
-            quotaDTO.setSvc(status.getUsedOrDefault("services", defaultQuantity).getString());
+                if(hard != null) {
+                    quotaDTO.setCpuLimit(hard.getOrDefault("limits.cpu", defaultQuantity).getAmount());
+                    quotaDTO.setMemLimit(hard.getOrDefault("limits.memory", defaultQuantity).getAmount());
+                    quotaDTO.setPodLimit(hard.getOrDefault("pods", defaultQuantity).getAmount());
+                    quotaDTO.setSvcLimit(hard.getOrDefault("services", defaultQuantity).getAmount());
+                }
+
+                if(used != null) {
+                    quotaDTO.setCpu(status.getUsed().getOrDefault("limits.cpu", defaultQuantity).getAmount());
+                    quotaDTO.setMem(status.getHard().getOrDefault("limits.memory", defaultQuantity).getAmount());
+                    quotaDTO.setPod(status.getHard().getOrDefault("pods", defaultQuantity).getAmount());
+                    quotaDTO.setSvc(status.getHard().getOrDefault("services", defaultQuantity).getAmount());
+                }
+            }
         }catch(Exception ex){
             ex.printStackTrace();
         }
