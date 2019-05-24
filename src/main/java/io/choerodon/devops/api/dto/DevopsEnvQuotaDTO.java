@@ -9,11 +9,15 @@ public class DevopsEnvQuotaDTO {
 
     private String pod;
 
+    private String svc;
+
     private String cpuLimit;
 
     private String memLimit;
 
     private String podLimit;
+
+    private String svcLimit;
 
     private String name;
 
@@ -79,5 +83,21 @@ public class DevopsEnvQuotaDTO {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getSvc() {
+        return svc;
+    }
+
+    public void setSvc(String svc) {
+        this.svc = svc;
+    }
+
+    public String getSvcLimit() {
+        return svcLimit;
+    }
+
+    public void setSvcLimit(String svcLimit) {
+        this.svcLimit = svcLimit;
     }
 }

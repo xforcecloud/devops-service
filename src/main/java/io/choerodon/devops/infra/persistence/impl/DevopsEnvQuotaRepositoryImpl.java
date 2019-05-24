@@ -9,6 +9,8 @@ import io.choerodon.websocket.tool.KeyParseTool;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class DevopsEnvQuotaRepositoryImpl implements DevopsEnvQuotaRepository {
 
@@ -33,7 +35,11 @@ public class DevopsEnvQuotaRepositoryImpl implements DevopsEnvQuotaRepository {
         } else {
             mapper.insert(devopsEnvResourceDO);
         }
-
         return 1;
+    }
+
+    @Override
+    public List<DevopsEnvQuotaDO> findByEnvIds(List<Long> envIds) {
+        return mapper.selectByEnvIds(envIds);
     }
 }

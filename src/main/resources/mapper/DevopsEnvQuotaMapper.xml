@@ -3,7 +3,7 @@
 
 <mapper namespace="io.choerodon.devops.infra.mapper.DevopsEnvQuotaMapper">
 
-       <select id="selectBy" resultType="io.choerodon.devops.infra.dataobject.DevopsEnvQuotaDO">
+   <select id="selectBy" resultType="io.choerodon.devops.infra.dataobject.DevopsEnvQuotaDO">
         SELECT
         *
         FROM
@@ -16,5 +16,18 @@
         cluster_id = #{clusterId}
         order by  devops_env_quota.last_update_date desc
 
+    </select>
+
+
+ <select id="selectByEnvIds" resultType="io.choerodon.devops.infra.dataobject.DevopsEnvQuotaDO">
+        SELECT
+        *
+        FROM
+        devops_env_quota
+        WHERE env_id IN
+        <foreach collection="envIds" item="envId" open="(" separator="," close=")">
+         #{envId}
+        </foreach>
+        order by  devops_env_quota.last_update_date desc
     </select>
 </mapper>

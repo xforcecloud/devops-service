@@ -3,6 +3,7 @@ package io.choerodon.devops.api.controller.v1;
 import java.util.List;
 import java.util.Optional;
 
+import io.choerodon.devops.app.service.DevopsEnvironmentServiceEx;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.springframework.http.HttpStatus;
@@ -29,8 +30,11 @@ public class DevopsEnvironmentController {
 
     private DevopsEnvironmentService devopsEnvironmentService;
 
-    public DevopsEnvironmentController(DevopsEnvironmentService devopsEnvironmentService) {
+    private DevopsEnvironmentServiceEx devopsEnvironmentServiceEx;
+
+    public DevopsEnvironmentController(DevopsEnvironmentService devopsEnvironmentService, DevopsEnvironmentServiceEx devopsEnvironmentServiceEx) {
         this.devopsEnvironmentService = devopsEnvironmentService;
+        this.devopsEnvironmentServiceEx = devopsEnvironmentServiceEx;
     }
 
     /**
@@ -85,7 +89,7 @@ public class DevopsEnvironmentController {
             @PathVariable(value = "project_id") Long projectId,
             @ApiParam(value = "是否启用", required = true)
             @RequestParam(value = "active") Boolean active) {
-        return Optional.ofNullable(devopsEnvironmentService.listByProjectIdAndActive(projectId, active))
+        return Optional.ofNullable(devopsEnvironmentServiceEx.listByProjectIdAndActive(projectId, active))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.environment.get"));
     }
@@ -107,7 +111,7 @@ public class DevopsEnvironmentController {
             @PathVariable(value = "project_id") Long projectId,
             @ApiParam(value = "是否启用", required = true)
             @RequestParam Boolean active) {
-        return Optional.ofNullable(devopsEnvironmentService.listDevopsEnvGroupEnvs(projectId, active))
+        return Optional.ofNullable(devopsEnvironmentServiceEx.listDevopsEnvGroupEnvs(projectId, active))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.environment.get"));
     }
