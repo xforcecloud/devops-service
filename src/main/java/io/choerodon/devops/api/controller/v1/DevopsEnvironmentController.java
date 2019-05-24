@@ -84,7 +84,7 @@ public class DevopsEnvironmentController {
                     InitRoleCode.PROJECT_MEMBER})
     @ApiOperation(value = "项目下查询环境")
     @GetMapping
-    public ResponseEntity<List<DevopsEnviromentRepDTO>> listByProjectIdAndActive(
+    public ResponseEntity<List<DevopsEnviromentRepWithQuotaDTO>> listByProjectIdAndActive(
             @ApiParam(value = "项目id", required = true)
             @PathVariable(value = "project_id") Long projectId,
             @ApiParam(value = "是否启用", required = true)
@@ -106,7 +106,7 @@ public class DevopsEnvironmentController {
             roles = {InitRoleCode.PROJECT_OWNER})
     @ApiOperation(value = "项目下环境流水线查询环境")
     @GetMapping("/groups")
-    public ResponseEntity<List<DevopsEnvGroupEnvsDTO>> listByProjectIdAndActiveWithGroup(
+    public ResponseEntity<List<DevopsEnvGroupEnvsWithQuotaDTO>> listByProjectIdAndActiveWithGroup(
             @ApiParam(value = "项目id", required = true)
             @PathVariable(value = "project_id") Long projectId,
             @ApiParam(value = "是否启用", required = true)
