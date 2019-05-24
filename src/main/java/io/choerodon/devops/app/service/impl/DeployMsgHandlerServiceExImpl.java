@@ -63,6 +63,7 @@ public class DeployMsgHandlerServiceExImpl implements DeployMsgHandlerServiceEx 
         envQuotaDO.setClusterId(clusterId);
         envQuotaDO.setPayload(msg);
         envQuotaDO.setEnvId(envId);
+        envQuotaDO.setName(key);
 
         devopsEnvQuotaRepository.createOrUpdate(envQuotaDO);
     }
