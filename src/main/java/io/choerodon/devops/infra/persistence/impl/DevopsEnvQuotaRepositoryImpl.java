@@ -28,7 +28,7 @@ public class DevopsEnvQuotaRepositoryImpl implements DevopsEnvQuotaRepository {
         DevopsEnvQuotaDO quota = mapper.selectBy(name, clusterId, envId);
         if(quota != null){
             devopsEnvResourceDO.setId(quota.getId());
-            devopsEnvResourceDO.setObjectVersionNumber(1L);
+            devopsEnvResourceDO.setObjectVersionNumber(quota.getObjectVersionNumber());
             mapper.updateByPrimaryKeySelective(devopsEnvResourceDO);
         } else {
             mapper.insert(devopsEnvResourceDO);
