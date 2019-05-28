@@ -29,6 +29,7 @@ public class DevopsEnvironmentE {
     private Boolean isConnected;
     private Boolean isActive;
     private Boolean permission;
+    private Long clusterId;
 
     private Long devopsSyncCommit;
     private Long agentSyncCommit;
@@ -44,7 +45,7 @@ public class DevopsEnvironmentE {
      * @param isActive    环境是否启用
      * @param code        环境code
      */
-    public DevopsEnvironmentE(Long id, String name, String description, Boolean isConnect, Boolean isActive, String code) {
+    public DevopsEnvironmentE(Long id, String name, String description, Boolean isConnect, Boolean isActive, String code, Long clusterId) {
 
         this.id = id;
         this.name = name;
@@ -52,6 +53,7 @@ public class DevopsEnvironmentE {
         this.isConnected = isConnect;
         this.isActive = isActive;
         this.code = code;
+        this.clusterId = clusterId;
     }
 
     /**
@@ -107,6 +109,13 @@ public class DevopsEnvironmentE {
         this.token = token;
     }
 
+    public Long getClusterId() {
+        return clusterId;
+    }
+
+    public void setClusterId(Long clusterId) {
+        this.clusterId = clusterId;
+    }
 
     public String getDescription() {
         return description;

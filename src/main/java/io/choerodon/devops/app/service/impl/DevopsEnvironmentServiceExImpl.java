@@ -1,23 +1,10 @@
 package io.choerodon.devops.app.service.impl;
 
-import java.io.File;
-import java.util.*;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
 import com.alibaba.fastjson.JSONArray;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
-import io.choerodon.mybatis.pagehelper.PageHelper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.google.gson.JsonArray;
 import io.choerodon.asgard.saga.annotation.Saga;
 import io.choerodon.asgard.saga.dto.StartInstanceDTO;
 import io.choerodon.asgard.saga.feign.SagaClient;
@@ -30,6 +17,7 @@ import io.choerodon.devops.api.dto.iam.RoleDTO;
 import io.choerodon.devops.api.dto.iam.UserDTO;
 import io.choerodon.devops.api.validator.DevopsEnvironmentValidator;
 import io.choerodon.devops.app.service.DevopsEnvironmentService;
+import io.choerodon.devops.app.service.DevopsEnvironmentServiceEx;
 import io.choerodon.devops.domain.application.entity.*;
 import io.choerodon.devops.domain.application.entity.gitlab.GitlabGroupE;
 import io.choerodon.devops.domain.application.entity.gitlab.GitlabMemberE;
@@ -42,17 +30,39 @@ import io.choerodon.devops.domain.application.valueobject.ProjectHook;
 import io.choerodon.devops.domain.service.DeployService;
 import io.choerodon.devops.infra.common.util.*;
 import io.choerodon.devops.infra.common.util.enums.InstanceStatus;
+import io.choerodon.devops.infra.dataobject.DevopsEnvQuotaDO;
 import io.choerodon.devops.infra.dataobject.gitlab.GitlabProjectDO;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
 import io.choerodon.websocket.helper.EnvListener;
+import io.fabric8.kubernetes.api.model.Quantity;
+import io.fabric8.kubernetes.api.model.ResourceQuota;
+import io.fabric8.kubernetes.api.model.ResourceQuotaStatus;
+import io.kubernetes.client.proto.Resource;
+import io.kubernetes.client.proto.V1;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.File;
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 /**
  * Created by younger on 2018/4/9.
  */
 @Service
-public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
+public class DevopsEnvironmentServiceExImpl implements DevopsEnvironmentServiceEx {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DevopsEnvironmentServiceImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DevopsEnvironmentServiceExImpl.class);
     private static final Gson gson = new Gson();
     private static final String MASTER = "master";
     private static final String README = "README.md";
@@ -119,6 +129,9 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
     private DevopsClusterRepository devopsClusterRepository;
     @Autowired
     private DeployService deployService;
+
+    @Autowired
+    private DevopsEnvQuotaRepository devopsEnvQuotaRepository;
 
     @Override
     @Saga(code = "devops-create-env", description = "创建环境", inputSchema = "{}")
@@ -189,11 +202,11 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
     }
 
     @Override
-    public List<DevopsEnvGroupEnvsDTO> listDevopsEnvGroupEnvs(Long projectId, Boolean active) {
-        List<DevopsEnvGroupEnvsDTO> devopsEnvGroupEnvsDTOS = new ArrayList<>();
-        List<DevopsEnviromentRepDTO> devopsEnviromentRepDTOS = listByProjectIdAndActive(projectId, active);
+    public List<DevopsEnvGroupEnvsWithQuotaDTO> listDevopsEnvGroupEnvs(Long projectId, Boolean active) {
+        List<DevopsEnvGroupEnvsWithQuotaDTO> devopsEnvGroupEnvsDTOS = new ArrayList<>();
+        List<DevopsEnviromentRepWithQuotaDTO> devopsEnviromentRepDTOS = listByProjectIdAndActive(projectId, active);
         if (!active) {
-            DevopsEnvGroupEnvsDTO devopsEnvGroupEnvsDTO = new DevopsEnvGroupEnvsDTO();
+            DevopsEnvGroupEnvsWithQuotaDTO devopsEnvGroupEnvsDTO = new DevopsEnvGroupEnvsWithQuotaDTO();
             devopsEnvGroupEnvsDTO.setDevopsEnviromentRepDTOs(devopsEnviromentRepDTOS);
             devopsEnvGroupEnvsDTOS.add(devopsEnvGroupEnvsDTO);
             return devopsEnvGroupEnvsDTOS;
@@ -205,12 +218,12 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
             }
         });
         //按照环境组分组查询，有环境的环境组放前面，没环境的环境组放后面
-        Map<Long, List<DevopsEnviromentRepDTO>> resultMaps = devopsEnviromentRepDTOS.stream()
-                .collect(Collectors.groupingBy(DevopsEnviromentRepDTO::getDevopsEnvGroupId));
+        Map<Long, List<DevopsEnviromentRepWithQuotaDTO>> resultMaps = devopsEnviromentRepDTOS.stream()
+                .collect(Collectors.groupingBy(DevopsEnviromentRepWithQuotaDTO::getDevopsEnvGroupId));
         List<Long> envGroupIds = new ArrayList<>();
         resultMaps.forEach((key, value) -> {
             envGroupIds.add(key);
-            DevopsEnvGroupEnvsDTO devopsEnvGroupEnvsDTO = new DevopsEnvGroupEnvsDTO();
+            DevopsEnvGroupEnvsWithQuotaDTO devopsEnvGroupEnvsDTO = new DevopsEnvGroupEnvsWithQuotaDTO();
             DevopsEnvGroupE devopsEnvGroupE = new DevopsEnvGroupE();
             if (key != 0) {
                 devopsEnvGroupE = devopsEnvGroupRepository.query(key);
@@ -223,7 +236,7 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
         if (active) {
             devopsEnvGroupES.forEach(devopsEnvGroupE -> {
                 if (!envGroupIds.contains(devopsEnvGroupE.getId())) {
-                    DevopsEnvGroupEnvsDTO devopsEnvGroupEnvsDTO = new DevopsEnvGroupEnvsDTO();
+                    DevopsEnvGroupEnvsWithQuotaDTO devopsEnvGroupEnvsDTO = new DevopsEnvGroupEnvsWithQuotaDTO();
                     devopsEnvGroupEnvsDTO.setDevopsEnvGroupId(devopsEnvGroupE.getId());
                     devopsEnvGroupEnvsDTO.setDevopsEnvGroupName(devopsEnvGroupE.getName());
                     devopsEnvGroupEnvsDTOS.add(devopsEnvGroupEnvsDTO);
@@ -233,8 +246,9 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
         return devopsEnvGroupEnvsDTOS;
     }
 
+    //Change
     @Override
-    public List<DevopsEnviromentRepDTO> listByProjectIdAndActive(Long projectId, Boolean active) {
+    public List<DevopsEnviromentRepWithQuotaDTO> listByProjectIdAndActive(Long projectId, Boolean active) {
 
         // 查询当前用户的环境权限
         List<Long> permissionEnvIds = devopsEnvUserPermissionRepository
@@ -248,6 +262,7 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
 
         List<Long> connectedClusterList = envUtil.getConnectedEnvList(envListener);
         List<Long> upgradeClusterList = envUtil.getUpdatedEnvList(envListener);
+
         List<DevopsEnvironmentE> devopsEnvironmentES = devopsEnviromentRepository
                 .queryByprojectAndActive(projectId, active).stream().peek(t -> {
                     setEnvStatus(connectedClusterList, upgradeClusterList, t);
@@ -256,14 +271,79 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
                 })
                 .sorted(Comparator.comparing(DevopsEnvironmentE::getSequence))
                 .collect(Collectors.toList());
-        return ConvertHelper.convertList(devopsEnvironmentES, DevopsEnviromentRepDTO.class);
+        List<DevopsEnviromentRepDTO> dtos = ConvertHelper.convertList(devopsEnvironmentES, DevopsEnviromentRepDTO.class);
+
+        //get all envIds
+        if(active) {
+            List<Long> envIds = dtos.stream().map(DevopsEnviromentRepDTO::getId).collect(Collectors.toList());
+            //find all quotas
+            Map<Long, List<DevopsEnvQuotaDTO>> quotas = devopsEnvQuotaRepository.findByEnvIds(envIds)
+                    .stream().map(this::toDevopsEnvQuota)
+                    .collect(Collectors.groupingBy(DevopsEnvQuotaDTO::getEnvId));
+
+            List<DevopsEnviromentRepWithQuotaDTO> rets = dtos.stream().map(x -> toQuotaDTO(x, quotas)).collect(Collectors.toList());
+            return rets;
+        }else {
+            return dtos.stream().map(this::toEmptyQuotaDTO).collect(Collectors.toList());
+        }
     }
 
-    @Override
-    public List<DevopsEnviromentRepDTO> listDeployed(Long projectId) {
-        List<Long> envList = devopsServiceRepository.selectDeployedEnv();
-        return listByProjectIdAndActive(projectId, true).stream().filter(t ->
-                envList.contains(t.getId())).collect(Collectors.toList());
+    private DevopsEnvQuotaDTO toDevopsEnvQuota(DevopsEnvQuotaDO quotaDo){
+        DevopsEnvQuotaDTO quotaDTO = new DevopsEnvQuotaDTO();
+        String payload = quotaDo.getPayload();
+        quotaDTO.setEnvId(quotaDo.getEnvId());
+        quotaDTO.setName(quotaDo.getName());
+        try {
+            ResourceQuota resourceQuota = objectMapper.readValue(payload, ResourceQuota.class);
+            ResourceQuotaStatus status = resourceQuota.getStatus();
+
+            if(status != null) {
+                Quantity defaultQuantity = new Quantity();
+                defaultQuantity.setAmount("0");
+                Map<String, Quantity> hard = status.getHard();
+                Map<String, Quantity> used = status.getUsed();
+
+                if(hard != null) {
+                    quotaDTO.setCpuLimit(hard.getOrDefault("limits.cpu", defaultQuantity).getAmount());
+                    quotaDTO.setMemLimit(hard.getOrDefault("limits.memory", defaultQuantity).getAmount());
+                    quotaDTO.setPodLimit(hard.getOrDefault("pods", defaultQuantity).getAmount());
+                    quotaDTO.setSvcLimit(hard.getOrDefault("services", defaultQuantity).getAmount());
+                }
+
+                if(used != null) {
+                    quotaDTO.setCpu(used.getOrDefault("limits.cpu", defaultQuantity).getAmount());
+                    quotaDTO.setMem(used.getOrDefault("limits.memory", defaultQuantity).getAmount());
+                    quotaDTO.setPod(used.getOrDefault("pods", defaultQuantity).getAmount());
+                    quotaDTO.setSvc(used.getOrDefault("services", defaultQuantity).getAmount());
+                }
+            }
+        }catch(Exception ex){
+            ex.printStackTrace();
+        }
+
+        return quotaDTO;
+    }
+
+
+    private DevopsEnviromentRepWithQuotaDTO toQuotaDTO(DevopsEnviromentRepDTO rep, Map<Long, List<DevopsEnvQuotaDTO>> quotas){
+        DevopsEnviromentRepWithQuotaDTO ret = toEmptyQuotaDTO(rep);
+        ret.setQuotas(quotas.getOrDefault(ret.getId(), Collections.emptyList()));
+        return ret;
+    }
+
+    private DevopsEnviromentRepWithQuotaDTO toEmptyQuotaDTO(DevopsEnviromentRepDTO rep){
+        DevopsEnviromentRepWithQuotaDTO devopsEnviromentRepWithQuotaDTO= new DevopsEnviromentRepWithQuotaDTO();
+        devopsEnviromentRepWithQuotaDTO.setId(rep.getId());
+        devopsEnviromentRepWithQuotaDTO.setName(rep.getName());
+        devopsEnviromentRepWithQuotaDTO.setDescription(rep.getDescription());
+        devopsEnviromentRepWithQuotaDTO.setActive(rep.getActive());
+        devopsEnviromentRepWithQuotaDTO.setConnect(rep.getConnect());
+        devopsEnviromentRepWithQuotaDTO.setSequence(rep.getSequence());
+        devopsEnviromentRepWithQuotaDTO.setCode(rep.getCode());
+        devopsEnviromentRepWithQuotaDTO.setDevopsEnvGroupId(rep.getDevopsEnvGroupId());
+        devopsEnviromentRepWithQuotaDTO.setPermission(rep.getPermission());
+        devopsEnviromentRepWithQuotaDTO.setQuotas(Collections.emptyList());
+        return devopsEnviromentRepWithQuotaDTO;
     }
 
     @Override
@@ -453,26 +533,6 @@ public class DevopsEnvironmentServiceImpl implements DevopsEnvironmentService {
         DevopsEnvironmentE devopsEnvironmentE = devopsEnviromentRepository
                 .queryById(devopsEnvironmentUpdateDTO.getId());
         return !devopsEnvironmentE.getName().equals(devopsEnvironmentUpdateDTO.getName());
-    }
-
-    @Override
-    public List<DevopsEnviromentRepDTO> listByProjectId(Long projectId, Long appId) {
-        List<DevopsEnviromentRepDTO> devopsEnviromentRepDTOList = listByProjectIdAndActive(projectId, true);
-
-        if (appId == null) {
-            return devopsEnviromentRepDTOList.stream().filter(t ->
-                    applicationInstanceRepository.selectByEnvId(t.getId()).stream()
-                            .anyMatch(applicationInstanceE ->
-                                    applicationInstanceE.getStatus().equals(InstanceStatus.RUNNING.getStatus())))
-                    .collect(Collectors.toList());
-        } else {
-            return devopsEnviromentRepDTOList.stream().filter(t ->
-                    applicationInstanceRepository.selectByEnvId(t.getId()).stream()
-                            .anyMatch(applicationInstanceE ->
-                                    applicationInstanceE.getStatus().equals(InstanceStatus.RUNNING.getStatus())
-                                            && applicationInstanceE.getApplicationE().getId().equals(appId)))
-                    .collect(Collectors.toList());
-        }
     }
 
     @Override

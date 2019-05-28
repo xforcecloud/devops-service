@@ -50,7 +50,9 @@ public enum HelmType {
     CERT_ISSUED("cert_issued"),
     NAMESPACE_UPDATE("namespace_update"),
     UPGRADE_CLUSTER("upgrade"),
-    CERT_FAILED("cert_failed");
+    CERT_FAILED("cert_failed"),
+    RES_QUOTA_UPDATE("resource_quota_update"),
+    RES_QUOTA_REMOVED("resource_quota_removed");
 
     private static HashMap<String, HelmType> valuesMap = new HashMap<>(6);
 
@@ -165,6 +167,10 @@ public enum HelmType {
                 return HelmType.UPGRADE_CLUSTER;
             case "namespace_update":
                 return HelmType.NAMESPACE_UPDATE;
+            case "resource_quota_update":
+                return HelmType.RES_QUOTA_UPDATE;
+            case "resource_quota_removed":
+                return HelmType.RES_QUOTA_REMOVED;
             default:
                 break;
         }

@@ -132,11 +132,15 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
 
                 List<DevopsEnvPodDTO> newDevopsEnvPodDTO = new ArrayList<>();
                 devopsEnvPodDTOS.forEach(devopsEnvPodDTO -> {
-                            String podName = devopsEnvPodDTO.getName();
-                            String tmp = podName.substring(0, podName.lastIndexOf('-'));
-                            tmp = tmp.substring(0, tmp.lastIndexOf('-'));
-                            if (deploymentDTO.getName().equals(tmp)) {
-                                newDevopsEnvPodDTO.add(devopsEnvPodDTO);
+                            try {
+                                String podName = devopsEnvPodDTO.getName();
+                                String tmp = podName.substring(0, podName.lastIndexOf('-'));
+                                tmp = tmp.substring(0, tmp.lastIndexOf('-'));
+                                if (deploymentDTO.getName().equals(tmp)) {
+                                    newDevopsEnvPodDTO.add(devopsEnvPodDTO);
+                                }
+                            } catch (Exception ex){
+                                ex.printStackTrace();
                             }
                         }
                 );
