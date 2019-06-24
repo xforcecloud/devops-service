@@ -1,6 +1,9 @@
 package io.choerodon.devops.api.eventhandler;
 
 import io.choerodon.devops.app.service.DeployMsgHandlerServiceEx;
+import io.choerodon.devops.domain.application.entity.DevopsEnvironmentE;
+import io.choerodon.devops.domain.application.repository.DevopsEnvironmentRepository;
+import io.choerodon.devops.infra.feign.XDevopsClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,11 +30,27 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
 
     private DeployMsgHandlerServiceEx deployMsgHandlerServiceEx;
 
+    private XDevopsClient client;
+
+    private DevopsEnvironmentRepository devopsEnvironmentRepository;
+
 
     @Autowired
-    public SocketMessageHandler(DeployMsgHandlerService deployMsgHandlerService, DeployMsgHandlerServiceEx deployMsgHandlerServiceEx) {
+    public SocketMessageHandler(DeployMsgHandlerService deployMsgHandlerService, DeployMsgHandlerServiceEx deployMsgHandlerServiceEx, XDevopsClient client, DevopsEnvironmentRepository devopsEnvironmentRepository) {
         this.deployMsgHandlerService = deployMsgHandlerService;
         this.deployMsgHandlerServiceEx = deployMsgHandlerServiceEx;
+        this.client = client;
+        this.devopsEnvironmentRepository = devopsEnvironmentRepository;
+    }
+
+
+    private Long getEnvId(String key, Long clusterId) {
+        DevopsEnvironmentE devopsEnvironmentE = devopsEnvironmentRepository.queryByClusterIdAndCode(clusterId, KeyParseTool.getNamespace(key));
+        Long envId = null;
+        if (devopsEnvironmentE != null) {
+            envId = devopsEnvironmentE.getId();
+        }
+        return envId;
     }
 
     @Override
@@ -43,6 +62,13 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
         if (logger.isDebugEnabled()) {
             logger.debug(msg.toString());
         }
+        try {
+            //TODO async
+            client.recordSocketMsg(msg.getKey(), helmType.value,  getEnvId(msg.getKey(), TypeUtil.objToLong(msg.getClusterId())), msg.getPayload());
+        }catch(RuntimeException ex){
+            ex.printStackTrace();
+        }
+
         switch (helmType) {
             case HELM_RELEASE_PRE_INSTALL:
                 deployMsgHandlerService.handlerPreInstall(

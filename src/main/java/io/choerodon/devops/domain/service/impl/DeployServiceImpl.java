@@ -65,6 +65,7 @@ public class DeployServiceImpl implements DeployService {
         msg.setKey("cluster:" + devopsEnvironmentE.getClusterE().getId() + ".env:" + devopsEnvironmentE.getCode() + ".envId:" + devopsEnvironmentE.getId());
         msg.setType("git_ops_sync");
         msg.setPayload("");
+        
         commandSender.sendMsg(msg);
     }
 
