@@ -22,7 +22,8 @@ def set_map_item(follow_list, delta_map, value):
 
 
 def traversal(version_value_map, deploy_value_map, follow_keys, delta_map, update_list, add_list):
-
+    if not deploy_value_map:
+        deploy_value_map = []
     for key in deploy_value_map:
         follow_keys_copy = list(follow_keys)
         follow_keys_copy.append(key)
