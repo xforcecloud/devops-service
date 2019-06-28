@@ -15,4 +15,13 @@ public interface XDevopsClient {
                                                     @RequestParam("envId") Long envId,
                                                     @RequestBody String body);
 
+
+    @PostMapping(value = "/trace/error_msg")
+    ResponseEntity recordErrorMsg( @RequestParam String type
+                            , @RequestParam(required = false) String token
+                            , @RequestParam(required = false) Long envId
+                            , @RequestParam(required = false) String sha
+                            , @RequestParam(required = false) String releaseName
+                            , @RequestBody String body);
+
 }

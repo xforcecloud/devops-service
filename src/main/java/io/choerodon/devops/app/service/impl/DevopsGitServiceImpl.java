@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.choerodon.devops.infra.feign.XDevopsClient;
 import io.kubernetes.client.models.V1Service;
 import io.kubernetes.client.models.V1beta1Ingress;
 import org.slf4j.Logger;
@@ -144,7 +145,6 @@ public class DevopsGitServiceImpl implements DevopsGitService {
     @Autowired
     @Qualifier("handlerC7nCertificationServiceImpl")
     private HandlerObjectFileRelationsService handlerC7nCertificationRelationsService;
-
 
     public Integer getGitlabUserId() {
         UserAttrE userAttrE = userAttrRepository.queryById(TypeUtil.objToLong(GitUserNameUtil.getUserId()));
