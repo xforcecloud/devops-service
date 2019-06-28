@@ -17,11 +17,11 @@ public interface XDevopsClient {
 
 
     @PostMapping(value = "/trace/error_msg")
-    ResponseEntity recordErrorMsg( @RequestParam String type
-                            , @RequestParam(required = false) String token
-                            , @RequestParam(required = false) Long envId
-                            , @RequestParam(required = false) String sha
-                            , @RequestParam(required = false) String releaseName
+    ResponseEntity recordErrorMsg( @RequestParam("type") String type
+                            , @RequestParam(value = "token", required = false) String token
+                            , @RequestParam(value = "envId", required = false) Long envId
+                            , @RequestParam(value = "sha", required = false) String sha
+                            , @RequestParam(value = "releaseName", required = false) String releaseName
                             , @RequestBody String body);
 
 }
