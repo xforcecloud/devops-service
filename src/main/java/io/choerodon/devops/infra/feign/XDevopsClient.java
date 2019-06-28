@@ -12,7 +12,7 @@ public interface XDevopsClient {
     @PostMapping(value = "/trace/socket_msg")
     ResponseEntity recordSocketMsg(@RequestParam("msgKey") String msgKey,
                                                     @RequestParam("helmType") String helmType,
-                                                    @RequestParam("envId") Long envId,
+                                                    @RequestParam(value = "envId", required = false) Long envId,
                                                     @RequestBody String body);
 
 
