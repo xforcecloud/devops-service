@@ -41,10 +41,12 @@ import io.choerodon.websocket.Msg;
 import io.choerodon.websocket.helper.CommandSender;
 import io.choerodon.websocket.helper.EnvListener;
 import io.choerodon.websocket.helper.EnvSession;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Created by Zenger on 2018/4/12.
  */
+@Transactional
 @Service
 public class ApplicationInstanceServiceImpl implements ApplicationInstanceService {
 
