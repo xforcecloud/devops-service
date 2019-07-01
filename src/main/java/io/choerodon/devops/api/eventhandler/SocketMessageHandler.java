@@ -66,7 +66,7 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
         try {
             String payload = msg.getPayload();
             if(StringUtils.isEmpty(payload)){
-                payload = "";
+                payload = "{}";
             }
             //TODO async
             client.recordSocketMsg(msg.getKey(), helmType.value,  getEnvId(msg.getKey(), TypeUtil.objToLong(msg.getClusterId())), payload);
