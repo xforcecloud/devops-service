@@ -4,6 +4,7 @@ import io.choerodon.devops.app.service.DeployMsgHandlerServiceEx;
 import io.choerodon.devops.domain.application.entity.DevopsEnvironmentE;
 import io.choerodon.devops.domain.application.repository.DevopsEnvironmentRepository;
 import io.choerodon.devops.infra.feign.XDevopsClient;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,8 +64,12 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
             logger.debug(msg.toString());
         }
         try {
+            String payload = msg.getPayload();
+            if(StringUtils.isEmpty(payload)){
+                payload = "";
+            }
             //TODO async
-            client.recordSocketMsg(msg.getKey(), helmType.value,  getEnvId(msg.getKey(), TypeUtil.objToLong(msg.getClusterId())), msg.getPayload());
+            client.recordSocketMsg(msg.getKey(), helmType.value,  getEnvId(msg.getKey(), TypeUtil.objToLong(msg.getClusterId())), payload);
         }catch(RuntimeException ex){
             ex.printStackTrace();
         }
