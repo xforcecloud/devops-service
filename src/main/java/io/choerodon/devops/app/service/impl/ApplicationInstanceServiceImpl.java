@@ -699,6 +699,11 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
     @Override
     public void instanceStop(Long instanceId) {
         ApplicationInstanceE instanceE = applicationInstanceRepository.selectById(instanceId);
+
+        if(instanceE == null){
+            throw new CommonException("instance.not.exists");
+        }
+
         //校验用户是否有环境的权限
         devopsEnvUserPermissionRepository.checkEnvDeployPermission(TypeUtil.objToLong(GitUserNameUtil.getUserId()),
                 instanceE.getDevopsEnvironmentE().getId());
@@ -729,6 +734,11 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
     @Override
     public void instanceStart(Long instanceId) {
         ApplicationInstanceE instanceE = applicationInstanceRepository.selectById(instanceId);
+
+        if(instanceE == null){
+            throw new CommonException("instance.not.exists");
+        }
+
         //校验用户是否有环境的权限
         devopsEnvUserPermissionRepository.checkEnvDeployPermission(TypeUtil.objToLong(GitUserNameUtil.getUserId()),
                 instanceE.getDevopsEnvironmentE().getId());
@@ -759,6 +769,11 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
     @Override
     public void instanceReStart(Long instanceId) {
         ApplicationInstanceE instanceE = applicationInstanceRepository.selectById(instanceId);
+
+        if(instanceE == null){
+            throw new CommonException("instance.not.exists");
+        }
+
         //校验用户是否有环境的权限
         devopsEnvUserPermissionRepository.checkEnvDeployPermission(TypeUtil.objToLong(GitUserNameUtil.getUserId()),
                 instanceE.getDevopsEnvironmentE().getId());
@@ -781,6 +796,11 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
     @Override
     public void instanceDelete(Long instanceId) {
         ApplicationInstanceE instanceE = applicationInstanceRepository.selectById(instanceId);
+
+        if(instanceE == null){
+            throw new CommonException("instance.not.exists");
+        }
+
         //校验用户是否有环境的权限
         devopsEnvUserPermissionRepository.checkEnvDeployPermission(TypeUtil.objToLong(GitUserNameUtil.getUserId()),
                 instanceE.getDevopsEnvironmentE().getId());

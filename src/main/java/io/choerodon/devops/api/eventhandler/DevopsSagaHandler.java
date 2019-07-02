@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
+import io.choerodon.devops.infra.feign.XDevopsClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +47,9 @@ public class DevopsSagaHandler {
     private DevopsGitlabPipelineService devopsGitlabPipelineService;
     @Autowired
     private ApplicationRepository applicationRepository;
+    @Autowired
+    private XDevopsClient client;
+
 
     /**
      * devops创建环境
@@ -78,7 +82,11 @@ public class DevopsSagaHandler {
         } catch (IOException e) {
             LOGGER.info(e.getMessage());
         }
-        devopsGitService.fileResourceSync(pushWebHookDTO);
+        try {
+            devopsGitService.fileResourceSync(pushWebHookDTO);
+        }catch(Exception ex){
+            client.recordErrorMsg("error", pushWebHookDTO.getToken(), null, pushWebHookDTO.getCheckoutSha(), null, ex.getMessage());
+        }
         return data;
     }
 
