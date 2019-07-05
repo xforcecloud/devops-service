@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(value = "x-devops-service")
 public interface XDevopsClient {
 
+    //TODO
     @PostMapping(value = "/trace/socket_msg")
     ResponseEntity recordSocketMsg(@RequestParam("msgKey") String msgKey,
                                                     @RequestParam("helmType") String helmType,
@@ -23,5 +24,13 @@ public interface XDevopsClient {
                             , @RequestParam(value = "sha", required = false) String sha
                             , @RequestParam(value = "releaseName", required = false) String releaseName
                             , @RequestBody String body);
+
+
+    @PostMapping(value = "/trace/msg")
+    ResponseEntity recordEvent(
+            @RequestParam("type") String type
+            , @RequestParam(value = "envId") Long envId
+            , @RequestParam(value= "releaseName") String releaseName
+            , @RequestBody String body);
 
 }

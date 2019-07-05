@@ -230,6 +230,25 @@ public class ApplicationInstanceController {
                 .orElseThrow(() -> new CommonException("error.application.deploy"));
     }
 
+
+    /**
+     * 部署应用
+     *
+     * @return ApplicationInstanceDTO
+     */
+    @ApiOperation(value = "修复应用")
+    @Permission(level = ResourceLevel.PROJECT,
+            roles = {InitRoleCode.PROJECT_OWNER,
+                    InitRoleCode.PROJECT_MEMBER})
+    @PutMapping("/{instance_id}/fix-gitfile")
+    public ResponseEntity<String> fixApplication(
+            @ApiParam(value = "实例ID", required = true)
+            @PathVariable(value = "instance_id") Long instanceId) {
+        return Optional.ofNullable(applicationInstanceService.fixGitFile(instanceId))
+                .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
+                .orElseThrow(() -> new CommonException("error.application.deploy"));
+    }
+
     /**
      * 查询运行中的实例
      *

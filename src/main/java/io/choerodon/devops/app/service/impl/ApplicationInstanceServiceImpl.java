@@ -8,6 +8,8 @@ import java.util.stream.Collectors;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import io.choerodon.devops.infra.dataobject.*;
+import io.choerodon.devops.infra.feign.XDevopsClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,10 +33,6 @@ import io.choerodon.devops.domain.application.valueobject.ReplaceResult;
 import io.choerodon.devops.domain.service.DeployService;
 import io.choerodon.devops.infra.common.util.*;
 import io.choerodon.devops.infra.common.util.enums.*;
-import io.choerodon.devops.infra.dataobject.ApplicationInstanceDO;
-import io.choerodon.devops.infra.dataobject.ApplicationInstancesDO;
-import io.choerodon.devops.infra.dataobject.ApplicationLatestVersionDO;
-import io.choerodon.devops.infra.dataobject.DeployDO;
 import io.choerodon.devops.infra.mapper.ApplicationInstanceMapper;
 import io.choerodon.mybatis.pagehelper.domain.PageRequest;
 import io.choerodon.websocket.Msg;
@@ -111,6 +109,8 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
     private DeployMsgHandlerService deployMsgHandlerService;
     @Autowired
     private DevopsEnvUserPermissionRepository devopsEnvUserPermissionRepository;
+    @Autowired
+    private XDevopsClient xDevopsClient;
 
     @Override
     public Page<ApplicationInstanceDTO> listApplicationInstance(Long projectId, PageRequest pageRequest,
@@ -394,6 +394,8 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         return getDeployDetailDTOS(deployDOS);
     }
 
+
+
     private Page<DeployDetailDTO> getDeployDetailDTOS(Page<DeployDO> deployDOS) {
         Page<DeployDetailDTO> pageDeployDetailDTOS = new Page<>();
         List<DeployDetailDTO> deployDetailDTOS = new ArrayList<>();
@@ -519,7 +521,46 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         return devopsEnvPreviewDTO;
     }
 
+    //fix the git file
+    @Override
+    public String fixGitFile(Long instanceId) {
+        ApplicationInstanceDO ins = applicationInstanceMapper.selectByPrimaryKey(instanceId);
+        if(ins != null) {
+            ApplicationE instanceE = applicationRepository.query(ins.getAppId());
+            DevopsEnvironmentE devopsEnvironmentE = devopsEnvironmentRepository.queryById(ins.getEnvId());
+            String filePath = devopsEnvironmentService.handDevopsEnvGitRepository(devopsEnvironmentE);
+            ApplicationVersionE applicationVersionE =
+                    applicationVersionRepository.query(ins.getAppVersionId());
+            //在gitops库处理instance文件
+            ObjectOperation<C7nHelmRelease> objectOperation = new ObjectOperation<>();
+            ApplicationDeployDTO applicationDeployDTO = new ApplicationDeployDTO();
+            applicationDeployDTO.setAppId(ins.getAppId());
+            applicationDeployDTO.setAppInstanceId(ins.getId());
+            applicationDeployDTO.setAppVerisonId(ins.getAppVersionId());
+            applicationDeployDTO.setEnvironmentId(ins.getEnvId());
+
+            //检验gitops库是否存在，校验操作人是否是有gitops库的权限
+            UserAttrE userAttrE = userAttrRepository.queryById(TypeUtil.objToLong(GitUserNameUtil.getUserId()));
+            gitlabGroupMemberService.checkEnvProject(devopsEnvironmentE, userAttrE);
+
+            objectOperation.setType(getC7NHelmRelease(
+                    ins.getCode(), applicationVersionE, applicationDeployDTO, instanceE));
+            Integer projectId = TypeUtil.objToInteger(devopsEnvironmentE.getGitlabEnvProjectId());
+            objectOperation.operationEnvGitlabFile(
+                    "release-" + ins.getCode(),
+                    projectId,
+                    applicationDeployDTO.getType(),
+                    userAttrE.getGitlabUserId(),
+                    ins.getId(), C7NHELM_RELEASE, devopsEnvironmentE.getId(), filePath);
+            return "OK";
+        } else {
+            return "false";
+        }
+    }
+
     public ApplicationInstanceDTO createOrUpdate(ApplicationDeployDTO applicationDeployDTO) {
+
+
 
         //校验用户是否有环境的权限
         devopsEnvUserPermissionRepository.checkEnvDeployPermission(TypeUtil.objToLong(GitUserNameUtil.getUserId()),
@@ -609,6 +650,8 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
                 applicationInstanceRepository.update(applicationInstanceE);
             }
         }
+
+        //record event
         return ConvertHelper.convert(applicationInstanceE, ApplicationInstanceDTO.class);
     }
 
