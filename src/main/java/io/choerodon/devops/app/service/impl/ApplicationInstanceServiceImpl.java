@@ -538,6 +538,7 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
             applicationDeployDTO.setAppInstanceId(ins.getId());
             applicationDeployDTO.setAppVerisonId(ins.getAppVersionId());
             applicationDeployDTO.setEnvironmentId(ins.getEnvId());
+            applicationDeployDTO.setType("create");
 
             //检验gitops库是否存在，校验操作人是否是有gitops库的权限
             UserAttrE userAttrE = userAttrRepository.queryById(TypeUtil.objToLong(GitUserNameUtil.getUserId()));
@@ -558,9 +559,8 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         }
     }
 
+    //TODO add
     public ApplicationInstanceDTO createOrUpdate(ApplicationDeployDTO applicationDeployDTO) {
-
-
 
         //校验用户是否有环境的权限
         devopsEnvUserPermissionRepository.checkEnvDeployPermission(TypeUtil.objToLong(GitUserNameUtil.getUserId()),
