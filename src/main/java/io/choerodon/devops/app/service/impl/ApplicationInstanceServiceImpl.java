@@ -10,6 +10,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.choerodon.devops.infra.dataobject.*;
 import io.choerodon.devops.infra.feign.XDevopsClient;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -1007,6 +1008,14 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
 
     @Override
     public ReplaceResult getReplaceResult(String versionValue, String deployValue) {
+        if(StringUtils.isEmpty(versionValue)){
+            versionValue = "{}";
+        }
+
+        if(StringUtils.isEmpty(deployValue)){
+            versionValue = "{}";
+        }
+
         if (versionValue.equals(deployValue)) {
             ReplaceResult replaceResult = new ReplaceResult();
             replaceResult.setDeltaYaml("");
