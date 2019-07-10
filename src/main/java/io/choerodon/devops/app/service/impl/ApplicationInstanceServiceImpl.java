@@ -561,6 +561,7 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
     }
 
     //TODO add
+    @Override
     public ApplicationInstanceDTO createOrUpdate(ApplicationDeployDTO applicationDeployDTO) {
 
         //校验用户是否有环境的权限
@@ -656,6 +657,7 @@ public class ApplicationInstanceServiceImpl implements ApplicationInstanceServic
         return ConvertHelper.convert(applicationInstanceE, ApplicationInstanceDTO.class);
     }
 
+    @Override
     public ApplicationInstanceDTO createOrUpdateByGitOps(ApplicationDeployDTO applicationDeployDTO, Long userId) {
         DevopsEnvironmentE devopsEnvironmentE = devopsEnvironmentRepository
                 .queryById(applicationDeployDTO.getEnvironmentId());

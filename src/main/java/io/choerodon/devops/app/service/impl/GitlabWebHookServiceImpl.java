@@ -7,6 +7,7 @@ import io.choerodon.devops.infra.feign.XDevopsClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import io.choerodon.core.convertor.ConvertHelper;
@@ -24,6 +25,9 @@ public class GitlabWebHookServiceImpl implements GitlabWebHookService {
 
     @Autowired
     private XDevopsClient client;
+
+    @Value("${trace:false}")
+    private Boolean useTrace = false;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GitlabWebHookServiceImpl.class);
 
@@ -94,7 +98,13 @@ public class GitlabWebHookServiceImpl implements GitlabWebHookService {
                 devopsGitService.fileResourceSyncSaga(pushWebHookDTO, token);
             }
         }catch(Exception ex){
-            client.recordErrorMsg("error", token, null, sha, null, ex.getMessage());
+            if(useTrace) {
+                try {
+                    client.recordErrorMsg("error", token, null, sha, null, ex.getMessage());
+                }catch(Exception e){
+                    e.printStackTrace();
+                }
+            }
         }
     }
 }

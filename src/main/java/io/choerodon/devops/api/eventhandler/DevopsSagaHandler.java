@@ -8,6 +8,7 @@ import io.choerodon.devops.infra.feign.XDevopsClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import io.choerodon.asgard.saga.SagaDefinition;
@@ -50,6 +51,8 @@ public class DevopsSagaHandler {
     @Autowired
     private XDevopsClient client;
 
+    @Value("${trace:false}")
+    private Boolean useTrace = false;
 
     /**
      * devops创建环境
@@ -85,7 +88,14 @@ public class DevopsSagaHandler {
         try {
             devopsGitService.fileResourceSync(pushWebHookDTO);
         }catch(Exception ex){
-            client.recordErrorMsg("error", pushWebHookDTO.getToken(), null, pushWebHookDTO.getCheckoutSha(), null, ex.getMessage());
+            //maybe not got error here
+            if(useTrace && pushWebHookDTO != null) {
+                try {
+                    client.recordErrorMsg("error", pushWebHookDTO.getToken(), null, pushWebHookDTO.getCheckoutSha(), null, ex.getMessage());
+                } catch (RuntimeException e) {
+                    e.printStackTrace();
+                }
+            }
         }
         return data;
     }

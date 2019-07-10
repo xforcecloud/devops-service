@@ -8,6 +8,7 @@ import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import io.choerodon.devops.app.service.DeployMsgHandlerService;
@@ -35,6 +36,8 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
 
     private DevopsEnvironmentRepository devopsEnvironmentRepository;
 
+    @Value("${trace:false}")
+    private Boolean useTrace = false;
 
     @Autowired
     public SocketMessageHandler(DeployMsgHandlerService deployMsgHandlerService, DeployMsgHandlerServiceEx deployMsgHandlerServiceEx, XDevopsClient client, DevopsEnvironmentRepository devopsEnvironmentRepository) {
@@ -64,12 +67,18 @@ public class SocketMessageHandler extends AbstractAgentMsgHandler {
             logger.debug(msg.toString());
         }
         try {
-            String payload = msg.getPayload();
-            if(StringUtils.isEmpty(payload)){
-                payload = "{}";
+            if(useTrace) {
+                String payload = msg.getPayload();
+                if (StringUtils.isEmpty(payload)) {
+                    payload = "{}";
+                }
+
+                Long envId = getEnvId(msg.getKey(), TypeUtil.objToLong(msg.getClusterId()));
+                if (envId != null) {
+                    //TODO async
+                    client.recordSocketMsg(msg.getKey(), helmType.value, envId, payload);
+                }
             }
-            //TODO async
-            client.recordSocketMsg(msg.getKey(), helmType.value,  getEnvId(msg.getKey(), TypeUtil.objToLong(msg.getClusterId())), payload);
         }catch(RuntimeException ex){
             ex.printStackTrace();
         }
