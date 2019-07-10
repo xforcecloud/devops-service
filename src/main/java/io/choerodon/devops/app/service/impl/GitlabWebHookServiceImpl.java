@@ -3,8 +3,11 @@ package io.choerodon.devops.app.service.impl;
 import com.alibaba.fastjson.JSONArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import io.choerodon.devops.infra.feign.XDevopsClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import io.choerodon.core.convertor.ConvertHelper;
@@ -18,6 +21,13 @@ import io.choerodon.devops.domain.application.repository.DevopsMergeRequestRepos
 
 @Service
 public class GitlabWebHookServiceImpl implements GitlabWebHookService {
+
+
+    @Autowired
+    private XDevopsClient client;
+
+    @Value("${trace:false}")
+    private Boolean useTrace = false;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GitlabWebHookServiceImpl.class);
 
@@ -77,12 +87,24 @@ public class GitlabWebHookServiceImpl implements GitlabWebHookService {
     public void gitOpsWebHook(String body, String token) {
         JsonObject returnData = new JsonParser().parse(body).getAsJsonObject();
         String kind = returnData.get("object_kind").getAsString();
-        if ("push".equals(kind)) {
-            PushWebHookDTO pushWebHookDTO = JSONArray.parseObject(body, PushWebHookDTO.class);
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(pushWebHookDTO.toString());
+        String sha = null;
+        try {
+            if ("push".equals(kind)) {
+                PushWebHookDTO pushWebHookDTO = JSONArray.parseObject(body, PushWebHookDTO.class);
+                sha = pushWebHookDTO.getCheckoutSha();
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug(pushWebHookDTO.toString());
+                }
+                devopsGitService.fileResourceSyncSaga(pushWebHookDTO, token);
             }
-            devopsGitService.fileResourceSyncSaga(pushWebHookDTO, token);
+        }catch(Exception ex){
+            if(useTrace) {
+                try {
+                    client.recordErrorMsg("error", token, null, sha, null, ex.getMessage());
+                }catch(Exception e){
+                    e.printStackTrace();
+                }
+            }
         }
     }
 }

@@ -56,7 +56,7 @@
         <foreach collection="projectIds" item="project" open="(" separator="," close=")">
             #{project}
         </foreach>
-        AND dam.publish_level = 'organization'
+        #AND dam.publish_level = 'organization'
         )
         OR dam.publish_level = 'public'
     </select>

@@ -24,10 +24,16 @@
         *
         FROM
         devops_env_quota
-        WHERE env_id IN
-        <foreach collection="envIds" item="envId" open="(" separator="," close=")">
-         #{envId}
-        </foreach>
+        WHERE
+        1 = 0
+
+        <if test='envIds != null and envIds.size > 0'>
+            OR
+            env_id IN
+            <foreach collection="envIds" item="envId" open="(" separator="," close=")">
+             #{envId}
+            </foreach>
+        </if>
         order by  devops_env_quota.last_update_date desc
     </select>
 </mapper>
