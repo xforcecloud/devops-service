@@ -21,7 +21,7 @@ import springfox.documentation.annotations.ApiIgnore;
 import java.util.Optional;
 
 @RestController
-@RequestMapping(value = "/v1/organizations/{id}/apps")
+@RequestMapping(value = "/v1/organizations/{organization_id}/apps")
 public class OrganizationApplicationController {
 
     @Autowired
@@ -43,7 +43,7 @@ public class OrganizationApplicationController {
     @PostMapping("/list_by_options")
     public ResponseEntity<Page<ApplicationRepDTO>> pageByOptions(
             @ApiParam(value = "项目Id", required = true)
-            @PathVariable(value = "id") Long orgId,
+            @PathVariable(value = "organization_id") Long orgId,
             @ApiParam(value = "应用是否启用", required = false)
             @RequestParam(value = "active", required = false) Boolean isActive,
             @ApiParam(value = "应用是否存在版本", required = false)
