@@ -95,6 +95,8 @@ public class DevopsSagaHandler {
                 } catch (RuntimeException e) {
                     e.printStackTrace();
                 }
+            }else{
+                ex.printStackTrace();
             }
         }
         return data;

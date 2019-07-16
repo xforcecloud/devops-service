@@ -10,6 +10,8 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import io.choerodon.devops.infra.dataobject.ApplicationDO;
+import io.choerodon.devops.infra.mapper.ApplicationMapper;
 import io.kubernetes.client.JSON;
 import io.kubernetes.client.models.V1OwnerReference;
 import io.kubernetes.client.models.V1Pod;
@@ -88,6 +90,8 @@ public class DeployMsgHandlerServiceImpl implements DeployMsgHandlerService {
     private DevopsEnvironmentRepository devopsEnvironmentRepository;
     @Autowired
     private ApplicationRepository applicationRepository;
+    @Autowired
+    private ApplicationMapper applicationMapper;
     @Autowired
     private ApplicationVersionRepository applicationVersionRepository;
     @Autowired
@@ -1287,6 +1291,24 @@ public class DeployMsgHandlerServiceImpl implements DeployMsgHandlerService {
                                     .getOrganization().getId().equals(orgId))
                     .collect(Collectors.toList());
             applicationE = findAppInAppMarket(applicationES, applicationList);
+        }
+
+        //find in org
+        if(applicationE == null){
+            ApplicationDO applicationDO = new ApplicationDO();
+            applicationDO.setCode(appName);
+            List<ApplicationDO> apps = applicationMapper.select(applicationDO);
+            if(apps != null){
+                List<ApplicationDO> applicationList = apps.stream().filter(ApplicationDO ->
+                        iamRepository.queryIamProject(ApplicationDO.getProjectId())
+                                .getOrganization().getId().equals(orgId))
+                .collect(Collectors.toList());
+
+                if(applicationList != null && !applicationList.isEmpty()){
+                    return ConvertHelper.convert(applicationList.get(0), ApplicationE.class);
+                }
+
+            }
         }
         return applicationE;
     }
