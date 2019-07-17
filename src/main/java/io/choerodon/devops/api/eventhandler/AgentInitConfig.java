@@ -56,8 +56,8 @@ public class AgentInitConfig implements AgentConfigurer {
         public void onConnected(Session session) {
             try {
                 //just for test currently
-                session.getWebSocketSession().setTextMessageSizeLimit(buffersize);
-                session.getWebSocketSession().setBinaryMessageSizeLimit(buffersize);
+                //session.getWebSocketSession().setTextMessageSizeLimit(buffersize);
+                //session.getWebSocketSession().setBinaryMessageSizeLimit(buffersize);
                 Long clusterId = Long.valueOf(session.getRegisterKey().split(":")[1]);
                 deployService.initCluster(clusterId);
             } catch (Exception e) {
