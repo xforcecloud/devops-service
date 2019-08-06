@@ -4,6 +4,18 @@
 Integrated several open source tools to automate the process of `planning`, `coding`, `building`, `testing`, and `deployment`, `operation`, `monitoring`.
  After a little simple configuration, then you'll get the most smoothest development experience.
 
+此为基于原有的0.11.1版本切出的分支,主要是修改了对于 websocket-helper 的依赖,使用了新的 0.7.1-RELEASE-HEALTHCHECK 版本.
+修正了对于 agent 的连接健康检查的问题.并增加了如下的配置参数.
+```yaml
+choerodon:
+  websocket:
+    maxMessageBufferSize: 512000 # 最大可以接受的消息大小,字节.
+    healthCheckDuration: 30000 # 两次健康检测之间的时间隔间,毫秒.
+    healthCheckTimeout: 6000 # 健康检测容忍的最长时间,超过认为失败.(毫秒)
+    healthCheckTryNumber: 3 # 健康检查容忍的失败次数上限.
+    healthCheckWorkerNumber: {cpu+1} # 健康检查可以使用的线程数量,默认为 CPU 核数+1.
+```
+
 ## Feature
 `DevOps Service` contains features as follows:
 - Application management
