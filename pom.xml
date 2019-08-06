@@ -277,5 +277,20 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-test</artifactId>
         </dependency>
-    </dependencies>
+      </dependencies>
+
+   <repositories>
+    <repository>
+      <id>releases</id>
+      <url>http://120.27.140.65:8081/nexus/content/repositories/releases/</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+    </repository>
+    <repository>
+      <id>thirdparty</id>
+      <url>http://120.27.140.65:8081/nexus/content/repositories/thirdparty/</url>
+    </repository>
+  </repositories>
+
 </project>
