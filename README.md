@@ -15,6 +15,7 @@ choerodon:
     healthCheckTryNumber: 3 # 健康检查容忍的失败次数上限.
     healthCheckWorkerNumber: {cpu+1} # 健康检查可以使用的线程数量,默认为 CPU 核数+1.
 ```
+以上配置也可以使用环境变量指定.
 
 ## Feature
 `DevOps Service` contains features as follows:
