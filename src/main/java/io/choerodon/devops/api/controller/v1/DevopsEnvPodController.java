@@ -88,7 +88,7 @@ public class DevopsEnvPodController {
             @ApiParam(value = "环境id")
             @RequestParam(required = false) Long envId,
             @ApiParam(value = "pod ID", required = true)
-            @PathVariable Long podId) {
+            @RequestParam Long podId) {
         devopsEnvPodServiceEx.removePod(projectId, envId, podId);
         return new ResponseEntity<>("OK", HttpStatus.OK);
     }
