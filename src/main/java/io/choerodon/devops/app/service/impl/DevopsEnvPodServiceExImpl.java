@@ -20,8 +20,7 @@ public class DevopsEnvPodServiceExImpl implements DevopsEnvPodServiceEx {
     @Autowired
     private CommandSender commandSender;
 
-    @Autowired
-    private ObjectMapper mapper;
+    private ObjectMapper mapper = new ObjectMapper();
 
     @Autowired
     private DevopsEnvPodMapper podMapper;
