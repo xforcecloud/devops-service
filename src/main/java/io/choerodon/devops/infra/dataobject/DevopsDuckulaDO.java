@@ -13,7 +13,7 @@ import javax.persistence.Table;
  */
 @VersionAudit
 @ModifyAudit
-@Table(name = "devop_env_duckula")
+@Table(name = "devops_env_duckula")
 public class DevopsDuckulaDO extends AuditDomain {
 
     private Long envId;
