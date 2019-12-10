@@ -22,8 +22,9 @@ public class DevopsEnvironmentExRepositoryImpl implements DevopsEnvironmentExRep
 
     private DevopsDuckulaMapper devopsDuckulaMapper;
 
-    public DevopsEnvironmentExRepositoryImpl(DevopsEnvironmentMapper devopsEnvironmentMapper) {
+    public DevopsEnvironmentExRepositoryImpl(DevopsEnvironmentMapper devopsEnvironmentMapper, DevopsDuckulaMapper devopsDuckulaMapper ) {
         this.devopsEnvironmentMapper = devopsEnvironmentMapper;
+        this.devopsDuckulaMapper = devopsDuckulaMapper;
     }
 
     @Override
