@@ -2,6 +2,7 @@ package io.choerodon.devops.app.service.impl;
 
 import io.choerodon.core.convertor.ConvertHelper;
 import io.choerodon.devops.api.dto.DevopsEnviromentRepExDTO;
+import io.choerodon.devops.api.dto.DuckulaRep;
 import io.choerodon.devops.app.service.DevopsEnvironmentExService;
 import io.choerodon.devops.domain.application.entity.DevopsEnvUserPermissionE;
 import io.choerodon.devops.domain.application.entity.DevopsEnvironmentE;
@@ -62,6 +63,16 @@ public class DevopsEnvironmentExServiceImpl implements DevopsEnvironmentExServic
                 .sorted(Comparator.comparing(DevopsEnvironmentE::getSequence))
                 .collect(Collectors.toList());
         return ConvertHelper.convertList(devopsEnvironmentES, DevopsEnviromentRepExDTO.class);
+    }
+
+    @Override
+    public DuckulaRep findDuckula(Long projectId, Long envId) {
+        return devopsEnviromentRepository.queryDuckula(projectId, envId);
+    }
+
+    @Override
+    public int setDuckula(Long projectId, Long envId, String duckulaUrl) {
+        return devopsEnviromentRepository.insertEnvDuckula(projectId, envId, duckulaUrl);
     }
 
     private void setEnvStatus(List<Long> connectedEnvList, List<Long> upgradeEnvList, DevopsEnvironmentE t) {
