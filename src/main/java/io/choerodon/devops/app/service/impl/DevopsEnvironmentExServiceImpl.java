@@ -80,6 +80,7 @@ public class DevopsEnvironmentExServiceImpl implements DevopsEnvironmentExServic
     public Response saveDuckula(Long projectId, Long envId, DuckulaRep duckulaReq) {
         Response rep = new Response();
         if(duckulaReq != null) {
+            System.out.println(duckulaReq);
             DuckulaRep duckulaRep = devopsEnviromentRepository.queryDuckula(projectId, envId);
             if (duckulaRep.getCode() > 0) {
                 //update
