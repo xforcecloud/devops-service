@@ -15,4 +15,6 @@ public interface DevopsEnvironmentExRepository {
     DuckulaRep queryDuckula(Long projectId, Long envId);
 
     int insertEnvDuckula(Long projectId, Long envId, String url);
+
+    int updateDuckula(Long projectId, Long envId, DuckulaRep duckulaRep);
 }

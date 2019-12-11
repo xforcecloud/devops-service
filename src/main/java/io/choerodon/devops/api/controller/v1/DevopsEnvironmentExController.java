@@ -11,6 +11,7 @@ import io.choerodon.devops.app.service.DevopsEnvironmentService;
 import io.choerodon.swagger.annotation.Permission;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import io.swagger.models.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -61,6 +62,19 @@ public class DevopsEnvironmentExController {
             @ApiParam(value = "环境id", required = true)
             @PathVariable(value = "env_id") Long envId) {
         return Optional.ofNullable(devopsEnvironmentService.findDuckula(projectId, envId))
+                .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
+                .orElseThrow(() -> new CommonException("error.environment.get"));
+    }
+
+    @ApiOperation(value = "更新duckula地址")
+    @PostMapping("/{env_id}/duckula")
+    public ResponseEntity<Response> addEnvDuckula(
+            @ApiParam(value = "项目id", required = true)
+            @PathVariable(value = "project_id") Long projectId,
+            @ApiParam(value = "环境id", required = true)
+            @PathVariable(value = "env_id") Long envId,
+            @RequestBody DuckulaRep duckulaRep) {
+        return Optional.ofNullable(devopsEnvironmentService.saveDuckula(projectId, envId, duckulaRep))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.environment.get"));
     }

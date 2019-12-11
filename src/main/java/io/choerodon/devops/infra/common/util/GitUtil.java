@@ -52,6 +52,8 @@ public class GitUtil {
     private String microServiceFront;
     @Value("${template.version.JavaLib}")
     private String javaLib;
+    @Value("${git.port:22}")
+    private int gitSSHPort;
 
     /**
      * 构造方法
@@ -208,6 +210,7 @@ public class GitUtil {
             @Override
             protected void configure(OpenSshConfig.Host host, Session session) {
                 session.setConfig("StrictHostKeyChecking", "no");
+                session.setPort(gitSSHPort);
             }
 
             @Override

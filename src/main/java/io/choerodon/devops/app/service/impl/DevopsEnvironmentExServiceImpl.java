@@ -14,6 +14,7 @@ import io.choerodon.devops.infra.common.util.EnvUtil;
 import io.choerodon.devops.infra.common.util.GitUserNameUtil;
 import io.choerodon.devops.infra.common.util.TypeUtil;
 import io.choerodon.websocket.helper.EnvListener;
+import io.swagger.models.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -74,6 +75,22 @@ public class DevopsEnvironmentExServiceImpl implements DevopsEnvironmentExServic
     public int setDuckula(Long projectId, Long envId, String duckulaUrl) {
         return devopsEnviromentRepository.insertEnvDuckula(projectId, envId, duckulaUrl);
     }
+
+    @Override
+    public Response saveDuckula(Long projectId, Long envId, DuckulaRep duckulaReq) {
+        Response rep = new Response();
+        if(duckulaReq != null) {
+            DuckulaRep duckulaRep = devopsEnviromentRepository.queryDuckula(projectId, envId);
+            if (duckulaRep.getCode() > 0) {
+                //update
+                devopsEnviromentRepository.updateDuckula(projectId, envId, duckulaRep);
+            } else {
+                devopsEnviromentRepository.insertEnvDuckula(projectId, envId, duckulaRep.getBaseUrl());
+            }
+        }
+        return rep;
+    }
+
 
     private void setEnvStatus(List<Long> connectedEnvList, List<Long> upgradeEnvList, DevopsEnvironmentE t) {
         if (connectedEnvList.contains(t.getClusterE().getId()) && upgradeEnvList.contains(t.getClusterE().getId())) {
