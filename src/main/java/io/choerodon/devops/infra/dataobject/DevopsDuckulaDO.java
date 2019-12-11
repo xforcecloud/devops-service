@@ -16,6 +16,7 @@ import javax.persistence.Table;
 @Table(name = "devops_env_duckula")
 public class DevopsDuckulaDO extends AuditDomain {
 
+    @Id
     private Long envId;
 
     private Long projectId;
