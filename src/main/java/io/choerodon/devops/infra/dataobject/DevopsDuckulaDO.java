@@ -46,4 +46,13 @@ public class DevopsDuckulaDO extends AuditDomain {
     public void setUrl(String url) {
         this.url = url;
     }
+
+    @Override
+    public String toString() {
+        return "DevopsDuckulaDO{" +
+                "envId=" + envId +
+                ", projectId=" + projectId +
+                ", url='" + url + '\'' +
+                '}';
+    }
 }

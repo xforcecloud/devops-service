@@ -40,7 +40,9 @@ public class DevopsEnvironmentExRepositoryImpl implements DevopsEnvironmentExRep
     public DuckulaRep queryDuckula(Long projectId, Long envId) {
         DevopsDuckulaDO duckulaDO = new DevopsDuckulaDO();
         DevopsDuckulaDO rep = devopsDuckulaMapper.selectOne(duckulaDO);
+
         DuckulaRep duckulaRep = new DuckulaRep();
+        duckulaRep.setCode(0);
         if(rep != null){
             duckulaRep.setCode(1);
             duckulaRep.setBaseUrl(rep.getUrl());
@@ -56,6 +58,7 @@ public class DevopsEnvironmentExRepositoryImpl implements DevopsEnvironmentExRep
         duckulaDO.setProjectId(projectId);
         duckulaDO.setEnvId(envId);
         duckulaDO.setUrl(url);
+        System.out.println("insert:" + duckulaDO);
         return devopsDuckulaMapper.insert(duckulaDO);
     }
 
@@ -65,6 +68,8 @@ public class DevopsEnvironmentExRepositoryImpl implements DevopsEnvironmentExRep
         duckulaDO.setProjectId(projectId);
         duckulaDO.setEnvId(envId);
         duckulaDO.setUrl(duckulaRep.getBaseUrl());
+
+        System.out.println("insert:" + duckulaDO);
         return devopsDuckulaMapper.updateByPrimaryKeySelective(duckulaDO);
     }
 }
