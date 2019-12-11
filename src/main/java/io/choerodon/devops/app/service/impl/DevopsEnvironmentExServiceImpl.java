@@ -80,13 +80,12 @@ public class DevopsEnvironmentExServiceImpl implements DevopsEnvironmentExServic
     public Response saveDuckula(Long projectId, Long envId, DuckulaRep duckulaReq) {
         Response rep = new Response();
         if(duckulaReq != null) {
-            System.out.println(duckulaReq);
             DuckulaRep duckulaRep = devopsEnviromentRepository.queryDuckula(projectId, envId);
             if (duckulaRep.getCode() > 0) {
                 //update
-                devopsEnviromentRepository.updateDuckula(projectId, envId, duckulaRep);
+                devopsEnviromentRepository.updateDuckula(projectId, envId, duckulaReq);
             } else {
-                devopsEnviromentRepository.insertEnvDuckula(projectId, envId, duckulaRep.getBaseUrl());
+                devopsEnviromentRepository.insertEnvDuckula(projectId, envId, duckulaReq.getBaseUrl());
             }
         }
         return rep;
