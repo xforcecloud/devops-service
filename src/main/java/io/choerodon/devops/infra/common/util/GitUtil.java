@@ -53,7 +53,7 @@ public class GitUtil {
     @Value("${template.version.JavaLib}")
     private String javaLib;
     @Value("${git.port:22}")
-    private int gitSSHPort;
+    private Integer gitSSHPort = 22;
 
     /**
      * 构造方法
@@ -70,6 +70,14 @@ public class GitUtil {
         } catch (IOException io) {
             throw new CommonException(io.getMessage(), io);
         }
+    }
+
+    public int getGitSSHPort() {
+        return gitSSHPort;
+    }
+
+    public void setGitSSHPort(int gitSSHPort) {
+        this.gitSSHPort = gitSSHPort;
     }
 
     public GitUtil(String sshKey) {
@@ -210,6 +218,7 @@ public class GitUtil {
             @Override
             protected void configure(OpenSshConfig.Host host, Session session) {
                 session.setConfig("StrictHostKeyChecking", "no");
+                LOGGER.info("SSH port:" + gitSSHPort);
                 session.setPort(gitSSHPort);
             }
 
