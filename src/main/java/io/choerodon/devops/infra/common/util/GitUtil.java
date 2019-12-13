@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
+import io.choerodon.devops.infra.dataobject.DevopsEnvPodDO;
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.Git;
@@ -52,13 +53,15 @@ public class GitUtil {
     private String microServiceFront;
     @Value("${template.version.JavaLib}")
     private String javaLib;
-    @Value("${git.port:22}")
-    private Integer gitSSHPort = 22;
+
+    final private Integer gitSSHPort;
+
 
     /**
      * 构造方法
      */
-    public GitUtil() {
+    public GitUtil(@Value("${git.port:22}") Integer gitSSHPort) {
+        this.gitSSHPort = gitSSHPort;
         try {
             ResourceLoader resourceLoader = new DefaultResourceLoader();
             this.classPath = resourceLoader.getResource("/").getURI().getPath();
@@ -67,21 +70,14 @@ public class GitUtil {
             if (!repo.exists() && repo.mkdirs()) {
                 LOGGER.info("create {} success", repositoryPath);
             }
+
         } catch (IOException io) {
             throw new CommonException(io.getMessage(), io);
         }
     }
 
-    public int getGitSSHPort() {
-        return gitSSHPort;
-    }
-
-    public void setGitSSHPort(int gitSSHPort) {
-        this.gitSSHPort = gitSSHPort;
-    }
-
-    public GitUtil(String sshKey) {
-        new GitUtil();
+    public GitUtil(String sshKey, @Value("${git.port:22}") Integer gitSSHPort) {
+        this(gitSSHPort);
         this.sshKey = sshKey;
     }
 
