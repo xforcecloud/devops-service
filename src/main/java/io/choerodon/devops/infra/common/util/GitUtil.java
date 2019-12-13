@@ -24,7 +24,9 @@ import org.eclipse.jgit.transport.*;
 import org.eclipse.jgit.util.FS;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -60,6 +62,7 @@ public class GitUtil {
     /**
      * 构造方法
      */
+    @Autowired
     public GitUtil(@Value("${git.port:22}") Integer gitSSHPort) {
         this.gitSSHPort = gitSSHPort;
         try {
