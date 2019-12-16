@@ -5,6 +5,7 @@ import io.choerodon.core.iam.InitRoleCode;
 import io.choerodon.core.iam.ResourceLevel;
 import io.choerodon.devops.api.dto.DevopsEnviromentRepDTO;
 import io.choerodon.devops.api.dto.DevopsEnviromentRepExDTO;
+import io.choerodon.devops.api.dto.DuckulaItem;
 import io.choerodon.devops.api.dto.DuckulaRep;
 import io.choerodon.devops.app.service.DevopsEnvironmentExService;
 import io.choerodon.devops.app.service.DevopsEnvironmentService;
@@ -75,6 +76,17 @@ public class DevopsEnvironmentExController {
             @PathVariable(value = "env_id") Long envId,
             @RequestBody DuckulaRep duckulaRep) {
         return Optional.ofNullable(devopsEnvironmentService.saveDuckula(projectId, envId, duckulaRep))
+                .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
+                .orElseThrow(() -> new CommonException("error.environment.get"));
+    }
+
+
+    @ApiOperation(value = "获取duckula地址")
+    @PostMapping("/duckula")
+    public ResponseEntity<List<DuckulaItem>> getDuckulaUrls(
+            @ApiParam(value = "项目id", required = true)
+            @PathVariable(value = "project_id") Long projectId) {
+        return Optional.ofNullable(devopsEnvironmentService.getDuckula(projectId))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.environment.get"));
     }

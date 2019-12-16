@@ -1,5 +1,6 @@
 package io.choerodon.devops.domain.application.repository;
 
+import io.choerodon.devops.api.dto.DuckulaItem;
 import io.choerodon.devops.api.dto.DuckulaRep;
 import io.choerodon.devops.domain.application.entity.DevopsEnvironmentE;
 
@@ -17,4 +18,6 @@ public interface DevopsEnvironmentExRepository {
     int insertEnvDuckula(Long projectId, Long envId, String url);
 
     int updateDuckula(Long projectId, Long envId, DuckulaRep duckulaRep);
+
+    List<DuckulaItem> getItems(Long projectId, String cate);
 }

@@ -1,16 +1,20 @@
 package io.choerodon.devops.infra.persistence.impl;
 
 import io.choerodon.core.convertor.ConvertHelper;
+import io.choerodon.devops.api.dto.DuckulaItem;
 import io.choerodon.devops.api.dto.DuckulaRep;
 import io.choerodon.devops.domain.application.entity.DevopsEnvironmentE;
 import io.choerodon.devops.domain.application.repository.DevopsEnvironmentExRepository;
 import io.choerodon.devops.infra.dataobject.DevopsDuckulaDO;
 import io.choerodon.devops.infra.dataobject.DevopsEnvironmentDO;
+import io.choerodon.devops.infra.dataobject.DevopsEnvironmentProps;
 import io.choerodon.devops.infra.mapper.DevopsDuckulaMapper;
 import io.choerodon.devops.infra.mapper.DevopsEnvironmentMapper;
+import io.choerodon.devops.infra.mapper.DevopsEnvironmentPropsMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Created by younger on 2018/4/9.
@@ -22,9 +26,15 @@ public class DevopsEnvironmentExRepositoryImpl implements DevopsEnvironmentExRep
 
     private DevopsDuckulaMapper devopsDuckulaMapper;
 
-    public DevopsEnvironmentExRepositoryImpl(DevopsEnvironmentMapper devopsEnvironmentMapper, DevopsDuckulaMapper devopsDuckulaMapper ) {
+    private DevopsEnvironmentPropsMapper propsMapper;
+
+    public DevopsEnvironmentExRepositoryImpl(DevopsEnvironmentMapper devopsEnvironmentMapper
+            , DevopsDuckulaMapper devopsDuckulaMapper
+            , DevopsEnvironmentPropsMapper propsMapper
+    ) {
         this.devopsEnvironmentMapper = devopsEnvironmentMapper;
         this.devopsDuckulaMapper = devopsDuckulaMapper;
+        this.propsMapper = propsMapper;
     }
 
     @Override
@@ -73,5 +83,19 @@ public class DevopsEnvironmentExRepositoryImpl implements DevopsEnvironmentExRep
 
         System.out.println("update:" + duckulaDO);
         return devopsDuckulaMapper.updateByPrimaryKeySelective(duckulaDO);
+    }
+
+    @Override
+    public List<DuckulaItem> getItems(Long projectId, String cate) {
+        DevopsEnvironmentProps props = new DevopsEnvironmentProps();
+        props.setCate(cate);
+        List<DevopsEnvironmentProps> result = propsMapper.select(props);
+        return result.stream().map(x -> {
+            DuckulaItem item = new DuckulaItem();
+            item.setCode(x.getCode());
+            item.setName(x.getName());
+            item.setUrl(x.getValue());
+            return item;
+        }).collect(Collectors.toList());
     }
 }

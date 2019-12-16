@@ -2,6 +2,7 @@ package io.choerodon.devops.app.service.impl;
 
 import io.choerodon.core.convertor.ConvertHelper;
 import io.choerodon.devops.api.dto.DevopsEnviromentRepExDTO;
+import io.choerodon.devops.api.dto.DuckulaItem;
 import io.choerodon.devops.api.dto.DuckulaRep;
 import io.choerodon.devops.app.service.DevopsEnvironmentExService;
 import io.choerodon.devops.domain.application.entity.DevopsEnvUserPermissionE;
@@ -93,6 +94,10 @@ public class DevopsEnvironmentExServiceImpl implements DevopsEnvironmentExServic
         return rep;
     }
 
+    @Override
+    public List<DuckulaItem> getDuckula(Long projectId) {
+        return devopsEnviromentRepository.getItems(projectId, "duckula");
+    }
 
     private void setEnvStatus(List<Long> connectedEnvList, List<Long> upgradeEnvList, DevopsEnvironmentE t) {
         if (connectedEnvList.contains(t.getClusterE().getId()) && upgradeEnvList.contains(t.getClusterE().getId())) {
