@@ -82,7 +82,7 @@ public class DevopsEnvironmentExController {
 
 
     @ApiOperation(value = "获取duckula地址")
-    @PostMapping("/duckula")
+    @GetMapping("/duckula")
     public ResponseEntity<List<DuckulaItem>> getDuckulaUrls(
             @ApiParam(value = "项目id", required = true)
             @PathVariable(value = "project_id") Long projectId) {
