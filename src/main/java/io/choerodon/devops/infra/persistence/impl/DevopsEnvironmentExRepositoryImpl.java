@@ -80,7 +80,7 @@ public class DevopsEnvironmentExRepositoryImpl implements DevopsEnvironmentExRep
         duckulaDO.setProjectId(projectId);
         duckulaDO.setEnvId(envId);
         duckulaDO.setUrl(duckulaRep.getBaseUrl());
-        duckulaDO.setObjectVersionNumber(devopsDuckulaMapper.selectByPrimaryKey(projectId).getObjectVersionNumber());
+        duckulaDO.setObjectVersionNumber(devopsDuckulaMapper.selectByPrimaryKey(envId).getObjectVersionNumber());
 
         System.out.println("update:" + duckulaDO);
         return devopsDuckulaMapper.updateByPrimaryKeySelective(duckulaDO);
