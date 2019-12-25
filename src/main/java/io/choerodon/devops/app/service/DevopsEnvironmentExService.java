@@ -1,6 +1,9 @@
 package io.choerodon.devops.app.service;
 
 import io.choerodon.devops.api.dto.DevopsEnviromentRepExDTO;
+import io.choerodon.devops.api.dto.DuckulaItem;
+import io.choerodon.devops.api.dto.DuckulaRep;
+import io.swagger.models.Response;
 
 import java.util.List;
 
@@ -18,4 +21,11 @@ public interface DevopsEnvironmentExService {
      */
     List<DevopsEnviromentRepExDTO> listByProjectIdAndActive(Long projectId, Boolean active);
 
+    DuckulaRep findDuckula(Long projectId, Long envId);
+
+    int setDuckula(Long projectId, Long envId, String duckulaUrl);
+
+    Response saveDuckula(Long projectId, Long envId, DuckulaRep duckulaRep);
+
+    List<DuckulaItem> getDuckula(Long projectId);
 }

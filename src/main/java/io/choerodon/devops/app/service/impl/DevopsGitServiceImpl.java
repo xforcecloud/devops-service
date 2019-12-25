@@ -80,6 +80,9 @@ public class DevopsGitServiceImpl implements DevopsGitService {
     @Value("${services.gitlab.sshUrl}")
     private String gitlabSshUrl;
 
+    @Value("${git.port:22}")
+    private Integer gitSSHPort;
+
 
     @Autowired
     private DevopsGitRepository devopsGitRepository;
@@ -701,7 +704,7 @@ public class DevopsGitServiceImpl implements DevopsGitService {
 
     private void handDevopsEnvGitRepository(String path, String url, String envIdRsa, String commit) {
         File file = new File(path);
-        GitUtil gitUtil = new GitUtil(envIdRsa);
+        GitUtil gitUtil = new GitUtil(envIdRsa, gitSSHPort);
         final String repoPath = path + GIT_SUFFIX;
         if (!file.exists()) {
             gitUtil.cloneBySsh(path, url);

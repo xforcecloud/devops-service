@@ -100,6 +100,9 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
     @Value("${services.helm.url}")
     private String helmUrl;
 
+    @Value("${git.port:22}")
+    private Integer gitSSHPort;
+
     @Autowired
     private ApplicationMapper applicationMapper;
     @Autowired
@@ -172,7 +175,7 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
 
 
     private void createGitFile(String repoPath, Git git, String relativePath, String content) {
-        GitUtil gitUtil = new GitUtil();
+        GitUtil gitUtil = new GitUtil(gitSSHPort);
         try {
             gitUtil.createFileInRepo(repoPath, git, relativePath, content, null);
         } catch (IOException e) {
@@ -760,7 +763,7 @@ public class DevopsCheckLogServiceImpl implements DevopsCheckLogService {
             }
             LOGGER.info("begin to sync env objects for {}  env", devopsEnvironmentES.size());
             devopsEnvironmentES.forEach(devopsEnvironmentE -> {
-                GitUtil gitUtil = new GitUtil(devopsEnvironmentE.getEnvIdRsa());
+                GitUtil gitUtil = new GitUtil(devopsEnvironmentE.getEnvIdRsa(), gitSSHPort);
                 if (devopsEnvironmentE.getGitlabEnvProjectId() != null) {
                     LOGGER.info("{}:{}  begin to upgrade!", devopsEnvironmentE.getCode(), devopsEnvironmentE.getId());
                     String filePath;
