@@ -93,6 +93,9 @@ public class DevopsEnvironmentServiceExImpl implements DevopsEnvironmentServiceE
     @Value("${services.gitlab.url}")
     private String gitlabUrl;
 
+    @Value("${git.port:22}")
+    private Integer gitSSHPort;
+
     @Autowired
     private IamRepository iamRepository;
     @Autowired
@@ -648,7 +651,7 @@ public class DevopsEnvironmentServiceExImpl implements DevopsEnvironmentServiceE
                 projectE.getCode(), devopsEnvironmentE.getCode());
 
         File file = new File(path);
-        GitUtil gitUtil = new GitUtil(devopsEnvironmentE.getEnvIdRsa());
+        GitUtil gitUtil = new GitUtil(devopsEnvironmentE.getEnvIdRsa(), gitSSHPort);
         if (!file.exists()) {
             gitUtil.cloneBySsh(path, url);
         }

@@ -5,11 +5,14 @@ import io.choerodon.core.iam.InitRoleCode;
 import io.choerodon.core.iam.ResourceLevel;
 import io.choerodon.devops.api.dto.DevopsEnviromentRepDTO;
 import io.choerodon.devops.api.dto.DevopsEnviromentRepExDTO;
+import io.choerodon.devops.api.dto.DuckulaItem;
+import io.choerodon.devops.api.dto.DuckulaRep;
 import io.choerodon.devops.app.service.DevopsEnvironmentExService;
 import io.choerodon.devops.app.service.DevopsEnvironmentService;
 import io.choerodon.swagger.annotation.Permission;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import io.swagger.models.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -48,6 +51,42 @@ public class DevopsEnvironmentExController {
             @ApiParam(value = "是否启用", required = true)
             @RequestParam(value = "active") Boolean active) {
         return Optional.ofNullable(devopsEnvironmentService.listByProjectIdAndActive(projectId, active))
+                .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
+                .orElseThrow(() -> new CommonException("error.environment.get"));
+    }
+
+    @ApiOperation(value = "环境查询duckula地址")
+    @GetMapping("/{env_id}/duckula")
+    public ResponseEntity<DuckulaRep> findEnvDuckula(
+            @ApiParam(value = "项目id", required = true)
+            @PathVariable(value = "project_id") Long projectId,
+            @ApiParam(value = "环境id", required = true)
+            @PathVariable(value = "env_id") Long envId) {
+        return Optional.ofNullable(devopsEnvironmentService.findDuckula(projectId, envId))
+                .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
+                .orElseThrow(() -> new CommonException("error.environment.get"));
+    }
+
+    @ApiOperation(value = "更新duckula地址")
+    @PostMapping("/{env_id}/duckula")
+    public ResponseEntity<Response> addEnvDuckula(
+            @ApiParam(value = "项目id", required = true)
+            @PathVariable(value = "project_id") Long projectId,
+            @ApiParam(value = "环境id", required = true)
+            @PathVariable(value = "env_id") Long envId,
+            @RequestBody DuckulaRep duckulaRep) {
+        return Optional.ofNullable(devopsEnvironmentService.saveDuckula(projectId, envId, duckulaRep))
+                .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
+                .orElseThrow(() -> new CommonException("error.environment.get"));
+    }
+
+
+    @ApiOperation(value = "获取duckula地址")
+    @GetMapping("/duckula")
+    public ResponseEntity<List<DuckulaItem>> getDuckulaUrls(
+            @ApiParam(value = "项目id", required = true)
+            @PathVariable(value = "project_id") Long projectId) {
+        return Optional.ofNullable(devopsEnvironmentService.getDuckula(projectId))
                 .map(target -> new ResponseEntity<>(target, HttpStatus.OK))
                 .orElseThrow(() -> new CommonException("error.environment.get"));
     }

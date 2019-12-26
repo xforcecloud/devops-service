@@ -2,6 +2,8 @@ package io.choerodon.devops.app.service.impl;
 
 import io.choerodon.core.convertor.ConvertHelper;
 import io.choerodon.devops.api.dto.DevopsEnviromentRepExDTO;
+import io.choerodon.devops.api.dto.DuckulaItem;
+import io.choerodon.devops.api.dto.DuckulaRep;
 import io.choerodon.devops.app.service.DevopsEnvironmentExService;
 import io.choerodon.devops.domain.application.entity.DevopsEnvUserPermissionE;
 import io.choerodon.devops.domain.application.entity.DevopsEnvironmentE;
@@ -13,6 +15,7 @@ import io.choerodon.devops.infra.common.util.EnvUtil;
 import io.choerodon.devops.infra.common.util.GitUserNameUtil;
 import io.choerodon.devops.infra.common.util.TypeUtil;
 import io.choerodon.websocket.helper.EnvListener;
+import io.swagger.models.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -62,6 +65,38 @@ public class DevopsEnvironmentExServiceImpl implements DevopsEnvironmentExServic
                 .sorted(Comparator.comparing(DevopsEnvironmentE::getSequence))
                 .collect(Collectors.toList());
         return ConvertHelper.convertList(devopsEnvironmentES, DevopsEnviromentRepExDTO.class);
+    }
+
+    @Override
+    public DuckulaRep findDuckula(Long projectId, Long envId) {
+        return devopsEnviromentRepository.queryDuckula(projectId, envId);
+    }
+
+    @Override
+    public int setDuckula(Long projectId, Long envId, String duckulaUrl) {
+        return devopsEnviromentRepository.insertEnvDuckula(projectId, envId, duckulaUrl);
+    }
+
+    @Override
+    public Response saveDuckula(Long projectId, Long envId, DuckulaRep duckulaReq) {
+        Response rep = new Response();
+        if(duckulaReq != null) {
+            DuckulaRep duckulaRep = devopsEnviromentRepository.queryDuckula(projectId, envId);
+            if (duckulaRep.getCode() > 0) {
+                System.out.println("update");
+                //update
+                devopsEnviromentRepository.updateDuckula(projectId, envId, duckulaReq);
+            } else {
+                System.out.println("insert");
+                devopsEnviromentRepository.insertEnvDuckula(projectId, envId, duckulaReq.getBaseUrl());
+            }
+        }
+        return rep;
+    }
+
+    @Override
+    public List<DuckulaItem> getDuckula(Long projectId) {
+        return devopsEnviromentRepository.getItems(projectId, "duckula");
     }
 
     private void setEnvStatus(List<Long> connectedEnvList, List<Long> upgradeEnvList, DevopsEnvironmentE t) {

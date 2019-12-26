@@ -54,6 +54,7 @@ public enum HelmType {
     RES_QUOTA_UPDATE("resource_quota_update"),
     RES_QUOTA_REMOVED("resource_quota_removed");
 
+
     private static HashMap<String, HelmType> valuesMap = new HashMap<>(6);
 
     static {
@@ -171,6 +172,7 @@ public enum HelmType {
                 return HelmType.RES_QUOTA_UPDATE;
             case "resource_quota_removed":
                 return HelmType.RES_QUOTA_REMOVED;
+            case "":
             default:
                 break;
         }

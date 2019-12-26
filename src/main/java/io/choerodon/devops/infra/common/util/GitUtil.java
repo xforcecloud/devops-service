@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
+import io.choerodon.devops.infra.dataobject.DevopsEnvPodDO;
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.Git;
@@ -23,7 +24,9 @@ import org.eclipse.jgit.transport.*;
 import org.eclipse.jgit.util.FS;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -53,10 +56,15 @@ public class GitUtil {
     @Value("${template.version.JavaLib}")
     private String javaLib;
 
+    final private Integer gitSSHPort;
+
+
     /**
      * 构造方法
      */
-    public GitUtil() {
+    @Autowired
+    public GitUtil(@Value("${git.port:22}") Integer gitSSHPort) {
+        this.gitSSHPort = gitSSHPort;
         try {
             ResourceLoader resourceLoader = new DefaultResourceLoader();
             this.classPath = resourceLoader.getResource("/").getURI().getPath();
@@ -65,13 +73,14 @@ public class GitUtil {
             if (!repo.exists() && repo.mkdirs()) {
                 LOGGER.info("create {} success", repositoryPath);
             }
+
         } catch (IOException io) {
             throw new CommonException(io.getMessage(), io);
         }
     }
 
-    public GitUtil(String sshKey) {
-        new GitUtil();
+    public GitUtil(String sshKey, @Value("${git.port:22}") Integer gitSSHPort) {
+        this(gitSSHPort);
         this.sshKey = sshKey;
     }
 
@@ -208,6 +217,8 @@ public class GitUtil {
             @Override
             protected void configure(OpenSshConfig.Host host, Session session) {
                 session.setConfig("StrictHostKeyChecking", "no");
+                LOGGER.info("SSH port:" + gitSSHPort);
+                session.setPort(gitSSHPort);
             }
 
             @Override
